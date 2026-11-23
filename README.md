@@ -753,16 +753,14 @@ export class User {}
 #### Enum values
 
 By default each member of a generated TypeScript enum gets its own name as value (`USER = "USER"`).
-A triple-slash comment on an enum value can set a custom string or number value instead,
-either with `@value(...)` (can be combined with a description or `@deprecated`)
-or with a comment that is only a string or number literal.
-Values in the GraphQL schema are not affected, they still use member names.
+A comment line `@value("text")` or `@value(number)` on an enum value sets a custom value instead.
+It can be combined with a description or `@deprecated` on other comment lines.
 
 ```prisma
 enum Role {
   /// @value("user")
   USER
-  /// 2
+  /// @value(2)
   ADMIN
   /// Can review articles
   /// @value('reviewer')
@@ -793,8 +791,23 @@ registerEnumType(Role, {
 });
 ```
 
-Note: Prisma Client still reads and writes enum members by name (`'USER'`),
-so custom values are meant for the TypeScript/GraphQL layer.
+Rules:
+
+- A comment line starting with `@value` must be exactly `@value(<literal>)`,
+  where the literal is a JSON5 string (single or double quotes) or a finite number.
+  Anything else (`@value(foo)`, `@value ("x")`, two `@value` lines) fails generation.
+- `@value` in the middle of a sentence, or a comment that is only a literal (`/// 2`),
+  stays a plain description.
+- GraphQL enum names are not affected, the schema still uses member names (`USER`, `ADMIN`).
+
+Prisma Client reads and writes enums by member name (`'USER'`), not by custom value.
+So fields of an enum with custom values are typed by member names (`keyof typeof Role`)
+and stay compatible with Prisma types, while enums without custom values keep `` `${Role}` ``.
+NestJS uses the enum values as GraphQL internal values: a resolver must return
+`Role.USER` (`'user'`) for the field to serialize as `USER`, and receives `'user'` for input `USER`.
+Map between member names and values when passing data between Prisma and GraphQL, for example
+`Role[prismaUser.role]` to get the value and
+`(Object.keys(Role) as (keyof typeof Role)[]).find(key => Role[key] === value)` to get the name.
 
 ### Using library in other generators
 

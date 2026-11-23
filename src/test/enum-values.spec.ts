@@ -1,22 +1,66 @@
-import expect from 'expect';
-import { EnumMemberStructure, OptionalKind, Project } from 'ts-morph';
+import 'reflect-metadata';
 
-import { extractEnumValueDocumentation } from '../handlers/prisma-enum-documentation';
+import { NestFactory } from '@nestjs/core';
+import {
+  Field,
+  GraphQLSchemaBuilderModule,
+  GraphQLSchemaFactory,
+  ObjectType,
+  Query,
+  Resolver,
+} from '@nestjs/graphql';
+import expect from 'expect';
+import { graphql, printSchema } from 'graphql';
+import JSON5 from 'json5';
+import { EnumMemberStructure, OptionalKind, Project, ts } from 'ts-morph';
+
+import { extractEnumValueDocumentation } from '../helpers/enum-value-documentation';
+import { testSourceFile } from './helpers';
 import { testGenerate } from './test-generate';
 
-let project: Project;
+const schemaModel = `
+  model User {
+    id    Int    @id
+    role  Role
+    roles Role[]
+  }`;
 
-const enumMembers = (file: string, name: string) =>
-  project
-    .getSourceFileOrThrow(s => s.getFilePath().endsWith(file))
-    .getEnumOrThrow(name)
-    .getStructure().members as OptionalKind<EnumMemberStructure>[];
+const enumSourceFile = (project: Project, file: string) =>
+  project.getSourceFileOrThrow(s => s.getFilePath().endsWith(`/${file}`));
 
-const initializerOf = (file: string, enumName: string, member: string) =>
-  enumMembers(file, enumName).find(m => m.name === member)?.initializer;
+const enumMembers = (project: Project, file: string, enumName: string) =>
+  enumSourceFile(project, file).getEnumOrThrow(enumName).getStructure()
+    .members as OptionalKind<EnumMemberStructure>[];
+
+const initializerOf = (
+  project: Project,
+  file: string,
+  enumName: string,
+  member: string,
+) => enumMembers(project, file, enumName).find(m => m.name === member)?.initializer;
+
+/** Parsed `valuesMap` argument of the generated registerEnumType() call */
+const registeredValuesMap = (project: Project, file: string) => {
+  const call = enumSourceFile(project, file)
+    .getDescendantsOfKind(ts.SyntaxKind.CallExpression)
+    .find(c => c.getExpression().getText() === 'registerEnumType');
+  const valuesMap = call
+    ?.getArguments()[1]
+    ?.asKindOrThrow(ts.SyntaxKind.ObjectLiteralExpression)
+    .getProperty('valuesMap')
+    ?.asKindOrThrow(ts.SyntaxKind.PropertyAssignment)
+    .getInitializerOrThrow()
+    .getText();
+
+  return valuesMap === undefined
+    ? undefined
+    : JSON5.parse<Record<string, Record<string, unknown>>>(valuesMap);
+};
 
 describe('enum values from comments', () => {
-  let sourceText: string;
+  let project: Project;
+  const roleInitializer = (member: string) =>
+    initializerOf(project, 'role.enum.ts', 'Role', member);
 
   before(async () => {
     ({ project } = await testGenerate({
@@ -26,14 +70,12 @@ describe('enum values from comments', () => {
           USER
           /// @value(2)
           ADMIN
-          /// "guest"
-          GUEST
-          /// 3
-          EDITOR
-          /// -1.5
+          /// @value(-1.5)
           NEGATIVE
           /// @value('single')
           SINGLE
+          /// @value("C:\\\\dir")
+          PATH
           /// Can review things
           /// @value("reviewer")
           REVIEWER
@@ -42,89 +84,347 @@ describe('enum values from comments', () => {
           LEGACY
           /// Plain description
           DESCRIBED
+          /// "guest"
+          QUOTED
+          /// 3
+          NUMBERED
+          /// Use @value(x) to configure
+          MENTION
+          /// First paragraph
+          ///
+          /// Second paragraph
+          SPACED
+          /// Use "admin": full access \`\${process.exit(1)}\`
+          INJECTION
           PLAIN
         }
-        model User {
-          id    Int   @id
-          role  Role
-        }`,
+        ${schemaModel}`,
     }));
-    sourceText = project
-      .getSourceFileOrThrow(s => s.getFilePath().endsWith('role.enum.ts'))
-      .getText();
   });
 
   it('string value from @value()', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'USER')).toEqual('"user"');
+    expect(roleInitializer('USER')).toEqual('"user"');
   });
 
   it('number value from @value()', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'ADMIN')).toEqual('2');
+    expect(roleInitializer('ADMIN')).toEqual('2');
   });
 
-  it('string value from bare string literal comment', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'GUEST')).toEqual('"guest"');
-  });
-
-  it('number value from bare number literal comment', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'EDITOR')).toEqual('3');
-    expect(initializerOf('role.enum.ts', 'Role', 'NEGATIVE')).toEqual('-1.5');
+  it('negative decimal value', () => {
+    expect(roleInitializer('NEGATIVE')).toEqual('-1.5');
   });
 
   it('single-quoted string value', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'SINGLE')).toEqual('"single"');
+    expect(roleInitializer('SINGLE')).toEqual('"single"');
+  });
+
+  it('escaped backslash in value', () => {
+    expect(roleInitializer('PATH')).toEqual(String.raw`"C:\\dir"`);
   });
 
   it('value alongside description', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'REVIEWER')).toEqual('"reviewer"');
-    expect(sourceText).toContain('description: "Can review things"');
-    expect(sourceText).not.toContain('@value');
+    expect(roleInitializer('REVIEWER')).toEqual('"reviewer"');
+    expect(registeredValuesMap(project, 'role.enum.ts')?.REVIEWER).toEqual({
+      description: 'Can review things',
+    });
   });
 
   it('value alongside deprecation', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'LEGACY')).toEqual('10');
-    expect(sourceText).toContain('deprecationReason: "Use USER instead"');
+    expect(roleInitializer('LEGACY')).toEqual('10');
+    expect(registeredValuesMap(project, 'role.enum.ts')?.LEGACY).toEqual({
+      deprecationReason: 'Use USER instead',
+    });
   });
 
-  it('keeps default value for described or plain members', () => {
-    expect(initializerOf('role.enum.ts', 'Role', 'DESCRIBED')).toEqual('"DESCRIBED"');
-    expect(sourceText).toContain('description: "Plain description"');
-    expect(initializerOf('role.enum.ts', 'Role', 'PLAIN')).toEqual('"PLAIN"');
+  it('described member keeps default value', () => {
+    expect(roleInitializer('DESCRIBED')).toEqual('"DESCRIBED"');
+    expect(registeredValuesMap(project, 'role.enum.ts')?.DESCRIBED).toEqual({
+      description: 'Plain description',
+    });
   });
 
-  it('value-only comments do not produce valuesMap entries', () => {
-    expect(sourceText).not.toMatch(/\bUSER: \{/);
-    expect(sourceText).not.toMatch(/\bGUEST: \{/);
-    expect(sourceText).not.toMatch(/\bEDITOR: \{/);
+  it('plain member keeps default value', () => {
+    expect(roleInitializer('PLAIN')).toEqual('"PLAIN"');
+  });
+
+  it('bare string literal comment stays a description', () => {
+    expect(roleInitializer('QUOTED')).toEqual('"QUOTED"');
+    expect(registeredValuesMap(project, 'role.enum.ts')?.QUOTED).toEqual({
+      description: '"guest"',
+    });
+  });
+
+  it('bare number literal comment stays a description', () => {
+    expect(roleInitializer('NUMBERED')).toEqual('"NUMBERED"');
+    expect(registeredValuesMap(project, 'role.enum.ts')?.NUMBERED).toEqual({
+      description: '3',
+    });
+  });
+
+  it('@value mentioned inside a sentence is a description', () => {
+    expect(roleInitializer('MENTION')).toEqual('"MENTION"');
+    expect(registeredValuesMap(project, 'role.enum.ts')?.MENTION).toEqual({
+      description: 'Use @value(x) to configure',
+    });
+  });
+
+  it('description without @value is kept unchanged', () => {
+    expect(registeredValuesMap(project, 'role.enum.ts')?.SPACED).toEqual({
+      description: 'First paragraph\n\nSecond paragraph',
+    });
+  });
+
+  it('description with quotes and template syntax stays a string literal', () => {
+    expect(registeredValuesMap(project, 'role.enum.ts')?.INJECTION).toEqual({
+      description: 'Use "admin": full access `${process.exit(1)}`',
+    });
+  });
+
+  it('valuesMap contains only graphql metadata', () => {
+    const valuesMap = registeredValuesMap(project, 'role.enum.ts') ?? {};
+
+    expect(Object.keys(valuesMap).sort()).toEqual(
+      [
+        'DESCRIBED',
+        'INJECTION',
+        'LEGACY',
+        'MENTION',
+        'NUMBERED',
+        'QUOTED',
+        'REVIEWER',
+        'SPACED',
+      ].sort(),
+    );
+    expect(Object.values(valuesMap).some(v => 'value' in v)).toBe(false);
+  });
+
+  it('model field of custom-valued enum is typed by member names', () => {
+    const s = testSourceFile({ file: 'user.model.ts', project, property: 'role' });
+    expect(s.property?.type).toEqual('keyof typeof Role');
+  });
+
+  it('list field of custom-valued enum is typed by member names', () => {
+    const s = testSourceFile({ file: 'user.model.ts', project, property: 'roles' });
+    expect(s.property?.type).toEqual('Array<keyof typeof Role>');
+  });
+
+  it('input field of custom-valued enum is typed by member names', () => {
+    const s = testSourceFile({
+      file: 'user-create.input.ts',
+      project,
+      property: 'role',
+    });
+    expect(s.property?.type).toEqual('keyof typeof Role');
   });
 
   it('prisma built-in enums keep defaults', () => {
-    expect(initializerOf('sort-order.enum.ts', 'SortOrder', 'asc')).toEqual('"asc"');
+    expect(initializerOf(project, 'sort-order.enum.ts', 'SortOrder', 'asc')).toEqual(
+      '"asc"',
+    );
+  });
+});
+
+describe('enum without custom values', () => {
+  it('fields keep template literal type', async () => {
+    const { project } = await testGenerate({
+      schema: `
+        enum Role {
+          /// Description
+          USER
+        }
+        ${schemaModel}`,
+    });
+    const s = testSourceFile({ file: 'user.model.ts', project, property: 'role' });
+
+    expect(s.property?.type).toEqual('`${Role}`');
+  });
+});
+
+describe('enum values with emitSingle', () => {
+  it('custom value in single file', async () => {
+    const { project } = await testGenerate({
+      // Default pattern leaves the test harness project empty with emitSingle,
+      // same setup as other emitSingle specs
+      options: ['emitSingle = true', 'outputFilePattern = "{name}.{type}.ts"'],
+      schema: `
+        enum Role {
+          /// @value("user")
+          USER
+        }
+        ${schemaModel}`,
+    });
+
+    expect(initializerOf(project, 'index.ts', 'Role', 'USER')).toEqual('"user"');
+  });
+});
+
+describe('enum values with existing enum source file', () => {
+  it('custom value overrides existing member', async () => {
+    const { project } = await testGenerate({
+      createSouceFile: {
+        name: 'Role',
+        text: `export enum Role { USER = "USER" }`,
+        type: 'enum',
+      },
+      schema: `
+        enum Role {
+          /// @value("user")
+          USER
+        }
+        ${schemaModel}`,
+    });
+
+    expect(initializerOf(project, 'role.enum.ts', 'Role', 'USER')).toEqual('"user"');
+  });
+});
+
+describe('invalid enum value directive', () => {
+  it('fails generation', async () => {
+    await expect(
+      testGenerate({
+        schema: `
+          enum Role {
+            /// @value(foo)
+            USER
+          }
+          ${schemaModel}`,
+      }),
+    ).rejects.toThrow('Invalid @value directive for enum value Role.USER');
   });
 });
 
 describe('extractEnumValueDocumentation', () => {
-  it('throws on invalid @value()', () => {
-    expect(() =>
-      extractEnumValueDocumentation([{ documentation: '@value(foo)', name: 'X' }]),
-    ).toThrow(/X/);
+  const extract = (documentation: string) =>
+    extractEnumValueDocumentation('Role', [{ documentation, name: 'X' }]).X;
+
+  for (const [documentation, value] of [
+    ['@value(1)', 1],
+    ['@value(-1.5)', -1.5],
+    ['@value(.5)', 0.5],
+    ['@value(1e3)', 1000],
+    ['@value(0x10)', 16],
+    [String.raw`@value("a\"b")`, 'a"b'],
+    [String.raw`@value('it\'s')`, "it's"],
+    [`@value('say "hi"')`, 'say "hi"'],
+    [String.raw`@value('a\\"')`, String.raw`a\"`],
+    [String.raw`@value("a\nb")`, 'a\nb'],
+    ['@value("a)b")', 'a)b'],
+    ['@value("")', ''],
+    ['  @value("indented")', 'indented'],
+  ] as const) {
+    it(`parses ${documentation}`, () => {
+      expect(extract(documentation)).toEqual({ value });
+    });
+  }
+
+  for (const documentation of [
+    '@value(foo)',
+    '@value()',
+    '@value(1e400)',
+    '@value(12345678901234567890)',
+    '@value(NaN)',
+    '@value(true)',
+    '@value(null)',
+    '@value({})',
+    String.raw`@value("\x")`,
+    '@value ("x")',
+    '@value("x"',
+    '@Value("x")',
+    '@value("x") trailing',
+  ]) {
+    it(`rejects ${documentation}`, () => {
+      expect(() => extract(documentation)).toThrow(
+        'Invalid @value directive for enum value Role.X',
+      );
+    });
+  }
+
+  it('rejects multiple directives', () => {
+    expect(() => extract('@value("a")\n@value("b")')).toThrow(
+      'Multiple @value directives for enum value Role.X',
+    );
   });
 
   it('returns value and description', () => {
-    expect(
-      extractEnumValueDocumentation([{ documentation: 'Desc\n@value(7)', name: 'X' }]),
-    ).toEqual({ X: { description: 'Desc', value: 7 } });
+    expect(extract('Desc\n@value(7)')).toEqual({ description: 'Desc', value: 7 });
   });
 
-  it('allows parenthesis inside quoted value', () => {
-    expect(
-      extractEnumValueDocumentation([
-        { documentation: '@value("a)b") Note', name: 'X' },
-      ]),
-    ).toEqual({ X: { description: 'Note', value: 'a)b' } });
+  it('keeps multiline description around directive', () => {
+    expect(extract('Line one\n@value(7)\nLine two')).toEqual({
+      description: 'Line one\nLine two',
+      value: 7,
+    });
   });
 
   it('ignores members without documentation', () => {
-    expect(extractEnumValueDocumentation([{ name: 'X' }])).toEqual({});
+    expect(extractEnumValueDocumentation('Role', [{ name: 'X' }])).toEqual({});
+  });
+});
+
+describe('custom enum values in graphql schema', () => {
+  let schemaText: string;
+  let execute: (query: string) => Promise<unknown>;
+
+  before(async () => {
+    const { project } = await testGenerate({
+      schema: `
+        enum Role {
+          /// @value("user")
+          USER
+          /// @value(2)
+          ADMIN
+          GUEST
+        }
+        ${schemaModel}`,
+    });
+    // Run generated enum module to register it in NestJS metadata
+    const { outputText } = ts.transpileModule(
+      enumSourceFile(project, 'role.enum.ts').getFullText(),
+      { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+    );
+    const moduleExports: { Role?: Record<string, string | number> } = {};
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- evaluates generator output in test
+    const runModule = new Function('require', 'exports', outputText) as (
+      moduleRequire: NodeJS.Require,
+      moduleExports: object,
+    ) => void;
+    runModule(require, moduleExports);
+    const Role = moduleExports.Role!;
+
+    @ObjectType()
+    class RoleHolder {
+      @Field(() => Role)
+      role!: string | number;
+    }
+
+    @Resolver()
+    class RoleResolver {
+      @Query(() => [RoleHolder])
+      roles(): RoleHolder[] {
+        return [];
+      }
+    }
+
+    const app = await NestFactory.create(GraphQLSchemaBuilderModule, { logger: false });
+    await app.init();
+    const schema = await app.get(GraphQLSchemaFactory).create([RoleResolver]);
+    await app.close();
+    schemaText = printSchema(schema);
+    // Schema factory builds types only, resolve through root value
+    const rootValue = {
+      roles: () => [{ role: Role.USER }, { role: Role.ADMIN }, { role: Role.GUEST }],
+    };
+    execute = async (source: string) =>
+      (await graphql({ rootValue, schema, source })).data;
+  });
+
+  it('schema enum uses member names only', () => {
+    expect(schemaText).toMatch(/enum Role \{\s+USER\s+ADMIN\s+GUEST\s+\}/);
+  });
+
+  it('enum values serialize to member names', async () => {
+    expect(await execute('{ roles { role } }')).toEqual({
+      roles: [{ role: 'USER' }, { role: 'ADMIN' }, { role: 'GUEST' }],
+    });
   });
 });

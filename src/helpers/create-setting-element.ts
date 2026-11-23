@@ -4,6 +4,7 @@ import outmatch from 'outmatch';
 
 import { GeneratorConfiguration } from '../types';
 import type { ObjectSetting } from './object-settings';
+import { stripTag } from './strip-tag';
 
 /**
  * Parse one line of a triple-slash comment into a setting element
@@ -24,20 +25,22 @@ export function createSettingElement({
     documentLine: '',
     element: undefined as ObjectSetting | undefined,
   };
-  if (line.startsWith('@deprecated')) {
-    fieldElement.arguments!['deprecationReason'] = trim(line.slice(11));
+  const deprecationReason = stripTag(line, '@deprecated');
+  if (deprecationReason !== undefined) {
+    fieldElement.arguments!['deprecationReason'] = deprecationReason;
 
     result.element = fieldElement;
 
     return result;
   }
 
-  if (line.startsWith('@complexity')) {
-    let n = Number.parseInt(trim(line.slice(11)));
-    if (Number.isNaN(n) || n < 1) {
-      n = 1;
+  const complexityText = stripTag(line, '@complexity');
+  if (complexityText !== undefined) {
+    let complexity = Number.parseInt(complexityText);
+    if (Number.isNaN(complexity) || complexity < 1) {
+      complexity = 1;
     }
-    fieldElement.arguments!['complexity'] = n;
+    fieldElement.arguments!['complexity'] = complexity;
 
     result.element = fieldElement;
 

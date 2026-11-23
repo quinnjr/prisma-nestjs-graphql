@@ -36,10 +36,15 @@ export function createConfig(data: Record<string, unknown>) {
   >;
   const $warnings: string[] = [];
 
-  const configOutputFilePattern =
-    typeof config.outputFilePattern === 'string' && config.outputFilePattern
-      ? config.outputFilePattern
-      : `{model}/{name}.{type}.ts`;
+  const defaultOutputFilePattern = `{model}/{name}.{type}.ts`;
+  let configOutputFilePattern = defaultOutputFilePattern;
+  if (typeof config.outputFilePattern === 'string' && config.outputFilePattern) {
+    configOutputFilePattern = config.outputFilePattern;
+  } else if (config.outputFilePattern !== undefined) {
+    $warnings.push(
+      `outputFilePattern must be a non-empty string, got ${JSON.stringify(config.outputFilePattern)}; using default`,
+    );
+  }
 
   let outputFilePattern = filenamify(configOutputFilePattern, {
     replacement: '/',

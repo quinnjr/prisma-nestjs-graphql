@@ -51,7 +51,7 @@ export class UserUncheckedCreateInput {
   money?: Decimal;
 
   @Field(() => Role, { nullable: true })
-  role?: `${Role}`;
+  role?: keyof typeof Role;
 
   @Field(() => UserUncheckedCreateNestedManyWithoutFollowersInput, { nullable: true })
   @Type(() => UserUncheckedCreateNestedManyWithoutFollowersInput)

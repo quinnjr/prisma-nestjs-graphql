@@ -1,6 +1,5 @@
 import { GeneratorOptions } from '@prisma/generator-helper';
 import { ok } from 'assert';
-import type AwaitEventEmitter from 'await-event-emitter';
 import { mapKeys } from 'lodash';
 import { Project, QuoteKind } from 'ts-morph';
 
@@ -19,8 +18,11 @@ import { ReExport, reExport } from './handlers/re-export';
 import { registerEnum } from './handlers/register-enum';
 import { requireSingleFieldsInWhereUniqueInput } from './handlers/require-single-fields-in-whereunique-input';
 import { warning } from './handlers/warning';
+import { AwaitEventEmitter } from './helpers/await-event-emitter';
 import { createConfig } from './helpers/create-config';
+import { extractEnumValueDocumentation } from './helpers/enum-value-documentation';
 import { factoryGetSourceFile } from './helpers/factory-get-source-file';
+import { getBytesType, getPrismaClientMajor } from './helpers/get-bytes-type';
 import { createGetModelName } from './helpers/get-model-name';
 import {
   Document,
@@ -30,13 +32,6 @@ import {
   ObjectSettings,
   OutputType,
 } from './types';
-
-// Bundled output (pkgroll) maps a default import of this CommonJS module
-// to the whole module object, so the class has to be read from `.default`
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { default: AwaitEventEmitterClass } = require('await-event-emitter') as {
-  default: typeof AwaitEventEmitter;
-};
 
 export async function generate(
   args: GeneratorOptions & {
@@ -54,7 +49,7 @@ export async function generate(
 
   const config = createConfig(generator.config);
 
-  const eventEmitter = new AwaitEventEmitterClass();
+  const eventEmitter = new AwaitEventEmitter();
   eventEmitter.on('Warning', warning);
   if (config.emitBlocks.models) {
     eventEmitter.on('Model', modelData);
@@ -135,9 +130,21 @@ export async function generate(
   });
   const { datamodel, schema } = JSON.parse(JSON.stringify(dmmf)) as Document;
   const removeTypes = new Set<string>();
+  // Fields of enums with custom `@value(...)` member values are typed by member names
+  const customValueEnums = new Set(
+    datamodel.enums
+      .filter(enumType =>
+        Object.values(
+          extractEnumValueDocumentation(enumType.name, enumType.values),
+        ).some(documentation => documentation?.value !== undefined),
+      )
+      .map(enumType => enumType.name),
+  );
   const eventArguments: EventArguments = {
+    bytesType: getBytesType(getPrismaClientMajor(args.schemaPath)),
     classTransformerTypeModels: new Set(),
     config,
+    customValueEnums,
     enums: mapKeys(datamodel.enums, x => x.name),
     eventEmitter,
     fieldSettings,

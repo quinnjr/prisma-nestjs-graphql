@@ -109,6 +109,7 @@ enum Role {
   /// default user access control
   USER
   /// have full access control
+  /// @value("ninja")
   NINGA
   /// @deprecated Use USER instead
   ADMIN

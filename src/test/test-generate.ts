@@ -1,10 +1,12 @@
 import { GeneratorOptions } from '@prisma/generator-helper';
 import { ok } from 'assert';
 import AwaitEventEmitter from 'await-event-emitter/types';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import crypto from 'crypto';
 import fs from 'graceful-fs';
 import { castArray, uniq } from 'lodash';
+import os from 'os';
+import path from 'path';
 import { ImportSpecifierStructure, Project } from 'ts-morph';
 
 import { generate } from '../generate';
@@ -109,17 +111,44 @@ export async function testGenerate(args: {
   return { project, sourceFiles };
 }
 
-async function prepareCachePath(): Promise<string> {
-  const base = process.env.CI
-    ? process.cwd()
-    : await import('temp-dir').then(x => x.default);
-
-  const result = `${base}/~prisma-test`;
-
+/**
+ * Directory for test schema files and the prisma clients generated next to
+ * them. It must be inside the project: prisma resolves `@prisma/client` from
+ * the schema directory and tries to install it when it cannot be found.
+ */
+function prepareSchemaPath(): string {
+  const result = process.env.CI
+    ? `${process.cwd()}/~prisma-test`
+    : path.join(process.cwd(), 'node_modules', '.prisma-nestjs-graphql-test');
   if (!fs.existsSync(result)) {
     fs.mkdirSync(result, { recursive: true });
   }
+  return result;
+}
 
+/**
+ * Directory for the cached generator options files (which are executed) and
+ * the generated output.
+ */
+function prepareCachePath(): string {
+  if (process.env.CI) {
+    const result = `${process.cwd()}/~prisma-test`;
+    if (!fs.existsSync(result)) {
+      fs.mkdirSync(result, { recursive: true });
+    }
+    return result;
+  }
+  // Cached options files are executed, so keep them in a private per-user
+  // directory rather than a shared, world-writable temp location
+  const { uid } = os.userInfo();
+  const result = path.join(os.tmpdir(), `prisma-nestjs-graphql-test-${String(uid)}`);
+  fs.mkdirSync(result, { mode: 0o700, recursive: true });
+  const stat = fs.statSync(result);
+  if (stat.uid !== uid || (stat.mode & 0o077) !== 0) {
+    throw new Error(
+      `Test cache directory ${result} must be owned by uid ${String(uid)} and not accessible by others`,
+    );
+  }
   return result;
 }
 
@@ -147,15 +176,15 @@ async function createGeneratorOptions(
     `;
   // eslint-disable-next-line prefer-rest-params
   const hash = createHash(generatorVersion, schemaHeader, arguments);
-  const prismaTestPath = await prepareCachePath();
+  const prismaTestPath = prepareCachePath();
   const cacheFile = `${prismaTestPath}/options-${hash}.js`;
   if (!fs.existsSync(cacheFile)) {
-    const schemaFile = `${prismaTestPath}/schema-${hash}.prisma`;
+    const schemaFile = `${prepareSchemaPath()}/schema-${hash}.prisma`;
     const schemaContent = `
             ${schemaHeader}
             generator proxy {
                 provider = "node -r ts-node/register/transpile-only src/test/proxy-generator.ts"
-                output = "."
+                output = ${JSON.stringify(prismaTestPath)}
                 hash = "${hash}"
                 ${castArray(options).join('\n')}
             }
@@ -164,26 +193,35 @@ async function createGeneratorOptions(
     fs.writeFileSync(schemaFile, schemaContent);
 
     await new Promise((resolve, reject) => {
-      const proc = exec(
-        `node node_modules/prisma/build/index.js generate --schema=${schemaFile}`,
-      );
+      const proc = execFile('node', [
+        'node_modules/prisma/build/index.js',
+        'generate',
+        `--schema=${schemaFile}`,
+      ]);
       if (!proc.stderr) {
         throw new Error('Generate error');
       }
       proc.stdout?.pipe(process.stdout);
       proc.stderr.pipe(process.stdout);
       proc.on('error', reject);
-      proc.on('exit', code => {
+      proc.on('exit', (code, signal) => {
         if (code === 0) {
           resolve(0);
         } else {
-          reject(new Error(`prisma generate exited with code ${String(code)}`));
+          reject(
+            new Error(
+              `prisma generate for ${schemaFile} exited with code ${String(code)} signal ${String(signal)}`,
+            ),
+          );
         }
       });
     });
   }
 
-  return (await import(cacheFile)) as GeneratorOptions & {
+  // Not `await import(pathToFileURL(cacheFile).href)`: under ts-node commonjs,
+  // import() compiles to require(), which cannot resolve file:// URLs
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- cache file is a generated CommonJS module
+  return require(cacheFile) as GeneratorOptions & {
     prismaClientDmmf: DMMF.Document;
   };
 }

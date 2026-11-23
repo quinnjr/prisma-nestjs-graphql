@@ -32,6 +32,10 @@ export type TypeRecord = Partial<{
 export type GeneratorConfiguration = ReturnType<typeof createConfig>;
 
 export type EventArguments = {
+  /** TypeScript type of Prisma Bytes fields, depends on Prisma Client major version */
+  bytesType: string;
+  /** Enums with custom `@value(...)` member values, their fields are typed by member names */
+  customValueEnums: Set<string>;
   schema: Schema;
   models: Map<string, Model>;
   modelNames: string[];

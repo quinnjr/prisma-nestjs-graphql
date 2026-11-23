@@ -110,6 +110,8 @@ export function inputType(
       propertySettings?.name ||
         whereUniqueInputType ||
         getPropertyType({
+          bytesType: args.bytesType,
+          customValueEnums: args.customValueEnums,
           location,
           type: typeName,
         }),

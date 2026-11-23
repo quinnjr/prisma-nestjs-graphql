@@ -42,7 +42,7 @@ export class UserGroupBy {
   money?: Decimal;
 
   @Field(() => Role, { nullable: true })
-  role?: `${Role}`;
+  role?: keyof typeof Role;
 
   @Field(() => UserCountAggregate, { nullable: true })
   _count?: UserCountAggregate;

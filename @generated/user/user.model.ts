@@ -48,7 +48,7 @@ export class User {
   money!: Decimal | null;
 
   @Field(() => Role, { nullable: true })
-  role!: `${Role}` | null;
+  role!: keyof typeof Role | null;
 
   @Field(() => [User], { nullable: true })
   following?: Array<User>;

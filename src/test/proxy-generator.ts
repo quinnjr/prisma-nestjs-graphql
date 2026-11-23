@@ -9,6 +9,7 @@ generatorHandler({
     await fs.writeFile(
       `${generatorOutput}/options-${String(options.generator.config.hash)}.js`,
       `module.exports = ${JSON.stringify(options, undefined, 2)}`,
+      { mode: 0o600 },
     );
   },
   onManifest() {

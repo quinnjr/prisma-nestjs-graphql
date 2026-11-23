@@ -2,7 +2,7 @@ import AwaitEventEmitter from 'await-event-emitter';
 import { cloneDeep, keyBy, remove } from 'lodash';
 
 import { BeforeGenerateField } from '../event-names';
-import { EventArguments, InputType, SchemaArgument as SchemaArgument } from '../types';
+import { EventArguments, InputType, SchemaArgument } from '../types';
 
 /**
  * Subscribes on 'BeforeInputType'

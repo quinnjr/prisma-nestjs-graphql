@@ -27,6 +27,34 @@ describe('createConfig', () => {
     );
   });
 
+  it('outputFilePattern default when absent', () => {
+    const result = createConfig({});
+    expect(result.outputFilePattern).toEqual('{model}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([]);
+  });
+
+  it('outputFilePattern valid pattern round-trip', () => {
+    const result = createConfig({ outputFilePattern: '{type}/{name}.{type}.ts' });
+    expect(result.outputFilePattern).toEqual('{type}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([]);
+  });
+
+  it('outputFilePattern non-string value warns and uses default', () => {
+    const result = createConfig({ outputFilePattern: ['{name}.ts', '{type}.ts'] });
+    expect(result.outputFilePattern).toEqual('{model}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([
+      'outputFilePattern must be a non-empty string, got ["{name}.ts","{type}.ts"]; using default',
+    ]);
+  });
+
+  it('outputFilePattern empty string warns and uses default', () => {
+    const result = createConfig({ outputFilePattern: '' });
+    expect(result.outputFilePattern).toEqual('{model}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([
+      'outputFilePattern must be a non-empty string, got ""; using default',
+    ]);
+  });
+
   it('create config reExport', () => {
     const result = createConfig({ reExport: 'Single' });
     expect(result.reExport).toEqual(ReExport.Single);

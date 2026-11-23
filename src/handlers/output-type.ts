@@ -78,6 +78,8 @@ export function outputType(outputType: OutputType, args: EventArguments) {
     const propertyType = castArray(
       propertySettings?.name ||
         getPropertyType({
+          bytesType: args.bytesType,
+          customValueEnums: args.customValueEnums,
           location,
           type: outputTypeName,
         }),
