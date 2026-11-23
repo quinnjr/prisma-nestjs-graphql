@@ -7,7 +7,7 @@ generatorHandler({
     const generatorOutput = options.generator.output?.value;
     ok(generatorOutput, 'Missing generator configuration: output');
     await fs.writeFile(
-      `${generatorOutput}/options-${options.generator.config.hash}.js`,
+      `${generatorOutput}/options-${String(options.generator.config.hash)}.js`,
       `module.exports = ${JSON.stringify(options, undefined, 2)}`,
     );
   },

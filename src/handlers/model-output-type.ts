@@ -30,8 +30,9 @@ export function modelOutputType(outputType: OutputType, args: EventArguments) {
   const { config, eventEmitter, fieldSettings, getSourceFile, modelFields, models } =
     args;
 
-  if (isManyAndReturnOutputType(outputType.name)) return;
-
+  if (isManyAndReturnOutputType(outputType.name)) {
+    return;
+  }
   const model = models.get(outputType.name);
   ok(model, `Cannot find model by name ${outputType.name}`);
 
@@ -84,8 +85,9 @@ export function modelOutputType(outputType: OutputType, args: EventArguments) {
   importDeclarations.add('ObjectType', nestjsGraphql);
 
   for (const field of outputType.fields) {
-    if (config.omitModelsCount && field.name === '_count') continue;
-
+    if (config.omitModelsCount && field.name === '_count') {
+      continue;
+    }
     let fileType = 'model';
     const { isList, location, namespace, type } = field.outputType;
 
@@ -230,7 +232,6 @@ export function modelOutputType(outputType: OutputType, args: EventArguments) {
 
   // Generate class decorators from model settings
   for (const setting of modelSettings || []) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     if (shouldBeDecorated(setting)) {
       classStructure.decorators.push({
         arguments: setting.arguments as string[],

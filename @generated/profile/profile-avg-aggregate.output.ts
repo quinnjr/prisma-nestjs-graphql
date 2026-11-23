@@ -4,6 +4,6 @@ import { Float } from '@nestjs/graphql';
 
 @ObjectType()
 export class ProfileAvgAggregate {
-  @Field(() => Float, { nullable: true })
+  @Field(() => Float, { deprecationReason: 'Use new name instead', nullable: true })
   id?: number;
 }

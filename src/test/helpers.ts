@@ -14,9 +14,8 @@ export function getFieldOptions(
   if (typeof property === 'string') {
     propertyDeclaration = sourceFile.getClass(() => true)?.getProperty(property);
   }
-  const result = propertyDeclaration?.getStructure()?.decorators?.[0]?.arguments?.[1];
+  const result = propertyDeclaration?.getStructure().decorators?.[0]?.arguments?.[1];
   return result as string;
-  // return new Function(`return ${text}`)();
 }
 
 export function getPropertyStructure(sourceFile: SourceFile, name: string) {
@@ -75,8 +74,8 @@ export function testSourceFile(args: {
   return {
     classFile,
     fieldDecorator,
-    fieldDecoratorOptions: fieldDecorator?.arguments?.[1],
-    fieldDecoratorType: fieldDecorator?.arguments?.[0],
+    fieldDecoratorOptions: fieldDecorator?.arguments?.[1] as string | undefined,
+    fieldDecoratorType: fieldDecorator?.arguments?.[0] as string | undefined,
     namedImports,
     namespaceImports,
     property: propertyStructure as PropertyDeclarationStructure | undefined,

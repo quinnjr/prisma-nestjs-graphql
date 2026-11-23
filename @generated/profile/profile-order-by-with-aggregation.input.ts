@@ -10,7 +10,7 @@ import { ProfileSumOrderByAggregateInput } from './profile-sum-order-by-aggregat
 
 @InputType()
 export class ProfileOrderByWithAggregationInput {
-  @Field(() => SortOrder, { nullable: true })
+  @Field(() => SortOrder, { deprecationReason: 'Use new name instead', nullable: true })
   id?: `${SortOrder}`;
 
   @Field(() => SortOrder, { nullable: true })

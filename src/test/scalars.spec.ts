@@ -25,7 +25,7 @@ describe('scalars', () => {
       project,
       property: 'bytes',
     });
-    expect(s.property?.type).toEqual('Uint8Array');
+    expect(s.property?.type).toEqual("ReturnType<Uint8Array['slice']>");
   });
 
   it('bytes should have type equal to prisma nullable', () => {
@@ -34,6 +34,6 @@ describe('scalars', () => {
       project,
       property: 'maybeBytes',
     });
-    expect(s.property?.type).toEqual('Uint8Array | null');
+    expect(s.property?.type).toEqual("ReturnType<Uint8Array['slice']> | null");
   });
 });

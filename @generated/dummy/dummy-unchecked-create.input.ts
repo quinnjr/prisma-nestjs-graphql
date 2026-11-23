@@ -26,7 +26,7 @@ export class DummyUncheckedCreateInput {
   float?: number;
 
   @Field(() => String, { nullable: true })
-  bytes?: Uint8Array;
+  bytes?: ReturnType<Uint8Array['slice']>;
 
   @Field(() => GraphQLDecimal, { nullable: false })
   @Type(() => Object)

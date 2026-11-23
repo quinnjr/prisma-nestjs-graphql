@@ -1047,7 +1047,7 @@ it('several models', () => {
       .flatMap(s => s.getClasses())
       .flatMap(d => d.getProperties())
       .flatMap(p => p.getDecorators())) {
-      const argument = d.getCallExpression()?.getArguments()?.[0].getText();
+      const argument = d.getCallExpression()?.getArguments()[0].getText();
       expect(argument).not.toContain('null');
     }
   });
@@ -1532,7 +1532,7 @@ describe('emit single', () => {
       expect(types).toHaveLength(0);
     });
 
-    it('type started with Prisma should not be wrapped to instanceof', async () => {
+    it('type started with Prisma should not be wrapped to instanceof', () => {
       const types = sourceFile
         .getClasses()
         .flatMap(c => c.getProperties().map(p => ({ c, p })))
@@ -1858,7 +1858,7 @@ describe('object model options', () => {
 
     const s = testSourceFile({ class: 'User', project });
     const argument = s.classFile.getDecorator('ObjectType')?.getStructure()
-      .arguments?.[0];
+      .arguments?.[0] as string;
     const json = JSON5.parse(argument);
 
     expect(json).toEqual({ isAbstract: true });
@@ -2384,10 +2384,10 @@ describe('deprecation reason', () => {
     }));
   });
 
-  it('deprecation reason default', async () => {
+  it('deprecation reason default', () => {
     const s = testSourceFile({ class: 'User', project, property: 'name' });
 
-    expect(JSON5.parse(s.fieldDecoratorOptions)).toEqual(
+    expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
       expect.objectContaining({
         deprecationReason: 'Use name2 instead',
         description: 'Name description',
@@ -2407,7 +2407,7 @@ describe('deprecation reason', () => {
         project,
         property: 'name',
       });
-      expect(JSON5.parse(s.fieldDecoratorOptions)).toEqual(
+      expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
         expect.objectContaining({ deprecationReason: 'Use name2 instead' }),
       );
     });
@@ -2419,7 +2419,7 @@ describe('deprecation reason', () => {
     expect(jsdoc).toContain('* Name description');
     expect(jsdoc).toContain('* @deprecated Use name2 instead');
 
-    expect(JSON5.parse(s.fieldDecoratorOptions)).toEqual(
+    expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
       expect.objectContaining({
         deprecationReason: 'Use name2 instead',
         description: 'Name description',

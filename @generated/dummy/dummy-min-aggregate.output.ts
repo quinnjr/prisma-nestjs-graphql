@@ -20,7 +20,7 @@ export class DummyMinAggregate {
   float?: number;
 
   @Field(() => String, { nullable: true })
-  bytes?: Uint8Array;
+  bytes?: ReturnType<Uint8Array['slice']>;
 
   @Field(() => GraphQLDecimal, { nullable: true })
   decimal?: Decimal;

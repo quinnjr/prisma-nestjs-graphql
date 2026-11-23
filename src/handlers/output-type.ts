@@ -28,8 +28,9 @@ export function outputType(outputType: OutputType, args: EventArguments) {
   const isCountOutput =
     model?.name && outputType.name === `${model.name}CountOutputType`;
 
-  if (!config.emitBlocks.outputs && !isCountOutput) return;
-
+  if (!config.emitBlocks.outputs && !isCountOutput) {
+    return;
+  }
   // Get rid of bogus suffixes
   outputType.name = getOutputTypeName(outputType.name);
 

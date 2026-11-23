@@ -1,5 +1,6 @@
 import { GeneratorOptions } from '@prisma/generator-helper';
 import { ok } from 'assert';
+import type AwaitEventEmitter from 'await-event-emitter';
 import { mapKeys } from 'lodash';
 import { Project, QuoteKind } from 'ts-morph';
 
@@ -29,15 +30,19 @@ import {
   ObjectSettings,
   OutputType,
 } from './types';
-const AwaitEventEmitter = require('await-event-emitter').default;
 
-import AEE from 'await-event-emitter';
+// Bundled output (pkgroll) maps a default import of this CommonJS module
+// to the whole module object, so the class has to be read from `.default`
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { default: AwaitEventEmitterClass } = require('await-event-emitter') as {
+  default: typeof AwaitEventEmitter;
+};
 
 export async function generate(
   args: GeneratorOptions & {
     skipAddOutputSourceFiles?: boolean;
     connectCallback?: (
-      emitter: AEE,
+      emitter: AwaitEventEmitter,
       eventArguments: EventArguments,
     ) => void | Promise<void>;
   },
@@ -49,9 +54,11 @@ export async function generate(
 
   const config = createConfig(generator.config);
 
-  const eventEmitter = new AwaitEventEmitter();
+  const eventEmitter = new AwaitEventEmitterClass();
   eventEmitter.on('Warning', warning);
-  config.emitBlocks.models && eventEmitter.on('Model', modelData);
+  if (config.emitBlocks.models) {
+    eventEmitter.on('Model', modelData);
+  }
   if (config.emitBlocks.prismaEnums || config.emitBlocks.schemaEnums) {
     eventEmitter.on('EnumType', registerEnum);
   }
@@ -61,10 +68,18 @@ export async function generate(
   ) {
     eventEmitter.on('OutputType', outputType);
   }
-  config.emitBlocks.models && eventEmitter.on('ModelOutputType', modelOutputType);
-  config.emitBlocks.outputs && eventEmitter.on('AggregateOutput', createAggregateInput);
-  config.emitBlocks.inputs && eventEmitter.on('InputType', inputType);
-  config.emitBlocks.args && eventEmitter.on('ArgsType', argsType);
+  if (config.emitBlocks.models) {
+    eventEmitter.on('ModelOutputType', modelOutputType);
+  }
+  if (config.emitBlocks.outputs) {
+    eventEmitter.on('AggregateOutput', createAggregateInput);
+  }
+  if (config.emitBlocks.inputs) {
+    eventEmitter.on('InputType', inputType);
+  }
+  if (config.emitBlocks.args) {
+    eventEmitter.on('ArgsType', argsType);
+  }
   eventEmitter.on('GenerateFiles', generateFiles);
 
   for (const message of config.$warnings) {
@@ -87,13 +102,24 @@ export async function generate(
     ]);
   }
 
-  config.combineScalarFilters && combineScalarFilters(eventEmitter);
-  config.noAtomicOperations && noAtomicOperations(eventEmitter);
-  config.reExport !== ReExport.None && reExport(eventEmitter);
-  config.emitSingle && emitSingle(eventEmitter);
-  config.purgeOutput && purgeOutput(eventEmitter);
-  config.requireSingleFieldsInWhereUniqueInput &&
+  if (config.combineScalarFilters) {
+    combineScalarFilters(eventEmitter);
+  }
+  if (config.noAtomicOperations) {
+    noAtomicOperations(eventEmitter);
+  }
+  if (config.reExport !== ReExport.None) {
+    reExport(eventEmitter);
+  }
+  if (config.emitSingle) {
+    emitSingle(eventEmitter);
+  }
+  if (config.purgeOutput) {
+    purgeOutput(eventEmitter);
+  }
+  if (config.requireSingleFieldsInWhereUniqueInput) {
     requireSingleFieldsInWhereUniqueInput(eventEmitter);
+  }
 
   const models = new Map<string, Model>();
   const modelNames: string[] = [];
@@ -165,7 +191,10 @@ export async function generate(
     await eventEmitter.emit('OutputType', outputType, eventArguments);
   }
 
-  const inputTypes = inputObjectTypes.prisma.concat(inputObjectTypes.model || []);
+  const inputTypes = [
+    ...(inputObjectTypes.prisma ?? []),
+    ...(inputObjectTypes.model ?? []),
+  ];
 
   for (const inputType of inputTypes) {
     const event = {

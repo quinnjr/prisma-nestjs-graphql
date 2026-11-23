@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions, prefer-const, unicorn/no-null */
+/* eslint-disable @typescript-eslint/no-unused-expressions, prefer-const, no-useless-assignment -- type-level compatibility checks between generated and Prisma types */
 import { Field } from '@nestjs/graphql';
 import { Prisma, PrismaClient } from '@prisma/client';
 import * as P from '@prisma/client';
@@ -123,7 +123,7 @@ let $prisma = new PrismaClient();
 }
 {
   let x: DummyCreateInput = { decimal: 0 as any, id: '1' };
-  let p: Prisma.DummyCreateInput = { decimal: 0 as any, id: '2' };
+  let p: Prisma.DummyCreateInput = { decimal: 0, id: '2' };
   p = x;
 }
 {
@@ -151,8 +151,8 @@ let $prisma = new PrismaClient();
   let p: Prisma.UserCreateInput = {} as unknown as Prisma.UserCreateInput;
 }
 {
-  let x: Dummy['bytes'] = null as unknown as P.Dummy['bytes'];
-  let p: P.Dummy['bytes'] = null as unknown as Dummy['bytes'];
+  let x: Dummy['bytes'] = null;
+  let p: P.Dummy['bytes'] = null;
   p = x;
   x = p;
 }

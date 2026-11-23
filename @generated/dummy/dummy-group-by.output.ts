@@ -26,7 +26,7 @@ export class DummyGroupBy {
   float?: number;
 
   @Field(() => String, { nullable: true })
-  bytes?: Uint8Array;
+  bytes?: ReturnType<Uint8Array['slice']>;
 
   @Field(() => GraphQLDecimal, { nullable: false })
   decimal!: Decimal;

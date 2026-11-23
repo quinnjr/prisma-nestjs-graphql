@@ -2,7 +2,7 @@ import AwaitEventEmitter from 'await-event-emitter';
 import { cloneDeep, keyBy, remove } from 'lodash';
 
 import { BeforeGenerateField } from '../event-names';
-import { EventArguments, InputType, SchemaArg } from '../types';
+import { EventArguments, InputType, SchemaArgument as SchemaArgument } from '../types';
 
 /**
  * Subscribes on 'BeforeInputType'
@@ -28,7 +28,7 @@ function beforeInputType(
   }
 }
 
-function beforeGenerateField(field: SchemaArg): void {
+function beforeGenerateField(field: SchemaArgument): void {
   for (const fieldInput of field.inputTypes) {
     if (fieldInput.location !== 'inputObjectTypes') {
       continue;
@@ -69,6 +69,9 @@ function isScalarFilter(inputType: InputType) {
 function postBegin(args: EventArguments) {
   const { modelNames, schema } = args;
   const inputTypes = schema.inputObjectTypes.prisma;
+  if (!inputTypes) {
+    return;
+  }
   const enumTypes = schema.enumTypes.model || [];
   const types = [
     'Bool',

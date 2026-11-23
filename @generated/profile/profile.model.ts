@@ -5,7 +5,7 @@ import { User } from '../user/user.model';
 
 @ObjectType()
 export class Profile {
-  @Field(() => ID, { nullable: false })
+  @Field(() => ID, { deprecationReason: 'Use new name instead', nullable: false })
   id!: number;
 
   @Field(() => String, { nullable: false })

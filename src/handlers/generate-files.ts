@@ -28,9 +28,9 @@ export async function generateFiles(args: EventArguments) {
       // TODO: Check possible bug of ts-morph
       if (Array.isArray(statements)) {
         for (const statement of statements) {
-          if (
-            !(typeof statement === 'object' && statement.kind === StructureKind.Class)
-          ) {
+          if (!(
+            typeof statement === 'object' && statement.kind === StructureKind.Class
+          )) {
             continue;
           }
           for (const property of statement.properties || []) {
@@ -119,7 +119,12 @@ export async function generateFiles(args: EventArguments) {
       skipLibCheck: true,
     });
     const emitResult = await project.emit();
-    const errors = emitResult.getDiagnostics().map(d => String(d.getMessageText()));
+    const errors = emitResult.getDiagnostics().map(d => {
+      const messageText = d.getMessageText();
+      return typeof messageText === 'string'
+        ? messageText
+        : messageText.getMessageText();
+    });
     if (errors.length > 0) {
       eventEmitter.emitSync('Warning', errors);
     }

@@ -20,7 +20,7 @@ export function reExport(emitter: AwaitEventEmitter) {
 }
 
 function beforeGenerateFiles(args: EventArguments) {
-  const { project, output, config } = args;
+  const { config, output, project } = args;
   const rootDirectory = project.getDirectoryOrThrow(output);
 
   if ([ReExport.Directories, ReExport.All].includes(config.reExport)) {
@@ -87,7 +87,9 @@ function beforeGenerateFiles(args: EventArguments) {
   if (config.reExport === ReExport.All) {
     const exportDeclarations: ExportDeclarationStructure[] = [];
     for (const directory of rootDirectory.getDirectories()) {
-      if (directory.getBaseName() === 'node_modules') continue;
+      if (directory.getBaseName() === 'node_modules') {
+        continue;
+      }
       const sourceFile = directory.getSourceFileOrThrow('index.ts');
       exportDeclarations.push(getExportDeclaration(rootDirectory, sourceFile));
     }
@@ -109,8 +111,8 @@ function getExportDeclaration(
 ): ExportDeclarationStructure {
   return {
     kind: StructureKind.ExportDeclaration,
-    namedExports: sourceFile.getExportSymbols().map(s => ({ name: s.getName() })),
     moduleSpecifier: directory.getRelativePathAsModuleSpecifierTo(sourceFile),
+    namedExports: sourceFile.getExportSymbols().map(s => ({ name: s.getName() })),
   };
 }
 

@@ -32,7 +32,8 @@ export function getPropertyType(args: {
       return ['null'];
     }
     case 'Bytes': {
-      return ['Uint8Array'];
+      // Same as Prisma.Bytes: Uint8Array<ArrayBuffer> on TS >= 5.7, Uint8Array before
+      return ["ReturnType<Uint8Array['slice']>"];
     }
     case 'BigInt': {
       return ['bigint', 'number'];

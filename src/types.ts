@@ -12,7 +12,7 @@ export type OutputType = WritableDeep<DMMF.OutputType>;
 export type SchemaField = WritableDeep<DMMF.SchemaField>;
 export type SchemaEnum = DMMF.SchemaEnum;
 export type Model = WritableDeep<DMMF.Model>;
-export type SchemaArg = WritableDeep<DMMF.SchemaArg>;
+export type SchemaArgument = WritableDeep<DMMF.SchemaArg>;
 export type Schema = WritableDeep<DMMF.Schema>;
 export type Document = WritableDeep<DMMF.Document>;
 

@@ -1,10 +1,5 @@
 type EmittedBlockType =
-  | 'prismaEnums'
-  | 'schemaEnums'
-  | 'models'
-  | 'inputs'
-  | 'args'
-  | 'outputs';
+  'prismaEnums' | 'schemaEnums' | 'models' | 'inputs' | 'args' | 'outputs';
 
 export type EmitBlocksOption = 'enums' | 'models' | 'inputs' | 'args' | 'outputs';
 
@@ -18,11 +13,11 @@ const allEmmittedBlocks: EmittedBlockType[] = [
 ];
 
 const blocksDependencyMap: Record<EmitBlocksOption, EmittedBlockType[]> = {
-  enums: ['schemaEnums', 'prismaEnums'],
-  models: ['models', 'schemaEnums'],
-  inputs: ['inputs', 'prismaEnums'],
-  outputs: ['outputs'],
   args: ['args', 'inputs', 'prismaEnums'],
+  enums: ['schemaEnums', 'prismaEnums'],
+  inputs: ['inputs', 'prismaEnums'],
+  models: ['models', 'schemaEnums'],
+  outputs: ['outputs'],
 };
 
 export function createEmitBlocks(data?: string[]): Record<EmittedBlockType, boolean> {
@@ -36,8 +31,9 @@ export function createEmitBlocks(data?: string[]): Record<EmittedBlockType, bool
   let blocksToEmit = {} as Record<EmittedBlockType, boolean>;
 
   for (const block of data) {
-    if (!Object.keys(blocksDependencyMap).includes(block as any)) continue;
-
+    if (!Object.keys(blocksDependencyMap).includes(block)) {
+      continue;
+    }
     blocksToEmit = {
       ...blocksToEmit,
       ...Object.fromEntries(

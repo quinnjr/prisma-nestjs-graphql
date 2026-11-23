@@ -7,8 +7,7 @@ export function updateObjectProperty(args: {
 }) {
   const { expression, name, value } = args;
   let propertyAssignment = expression.getProperty(name) as
-    | PropertyAssignment
-    | undefined;
+    PropertyAssignment | undefined;
 
   if (value === undefined) {
     if (propertyAssignment) {
@@ -19,9 +18,9 @@ export function updateObjectProperty(args: {
 
   if (!propertyAssignment) {
     propertyAssignment = expression.addProperty({
-      name,
-      kind: StructureKind.PropertyAssignment,
       initializer: 'undefined',
+      kind: StructureKind.PropertyAssignment,
+      name,
     }) as PropertyAssignment;
   }
 

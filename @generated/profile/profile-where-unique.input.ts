@@ -8,7 +8,7 @@ import { Type } from 'class-transformer';
 
 @InputType()
 export class ProfileWhereUniqueInput {
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, { deprecationReason: 'Use new name instead', nullable: true })
   id?: number;
 
   @Field(() => String, { nullable: true })
