@@ -1,5 +1,5 @@
-import expect from 'expect';
 import { Project } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { formatDiagnostic } from '../handlers/generate-files';
 import { testGenerate } from './test-generate';
@@ -7,7 +7,7 @@ import { testGenerate } from './test-generate';
 describe('emit compiled', () => {
   let warnings: string[];
 
-  before(async () => {
+  beforeAll(async () => {
     warnings = [];
     await testGenerate({
       // A private member of an exported class expression cannot be described in

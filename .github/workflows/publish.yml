@@ -1,0 +1,70 @@
+# Publishes to npm with trusted publishing (OIDC), no npm token is stored.
+# npm package settings -> Trusted publishing -> GitHub Actions:
+#   organization/user: quinnjr
+#   repository:        prisma-nestjs-graphql
+#   workflow filename: publish.yml
+#   environment:       npm
+# Release: create a GitHub release with tag vX.Y.Z (vX.Y.Z-rc.1 publishes under "next").
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # OIDC token for npm trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - name: Resolve version from release tag
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${TAG#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Release tag '$TAG' is not a semantic version like v1.2.3"
+            exit 1
+          fi
+          if [[ "$version" == *-* ]]; then
+            dist_tag=next
+          else
+            dist_tag=latest
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dist-tag=$dist_tag" >> "$GITHUB_OUTPUT"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run typecheck
+      - run: pnpm run test
+      - run: pnpm run build
+      - name: Set package version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          jq --arg version "$VERSION" '.version = $version' dist/package.json > dist/package.tmp.json
+          mv dist/package.tmp.json dist/package.json
+      # Trusted publishing needs the npm CLI >= 11.5.1; pnpm only builds the package
+      - name: Update npm
+        run: npm install --global npm@^11.5.1
+      - name: Publish
+        env:
+          DIST_TAG: ${{ steps.version.outputs.dist-tag }}
+        run: npm publish ./dist --provenance --access public --tag "$DIST_TAG"

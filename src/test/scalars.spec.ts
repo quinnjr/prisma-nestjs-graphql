@@ -1,12 +1,12 @@
-import { expect } from 'expect';
 import { Project } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { testSourceFile } from './helpers';
 import { testGenerate } from './test-generate';
 
 describe('scalars', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `

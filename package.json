@@ -1,14 +1,16 @@
 {
-  "name": "prisma-nestjs-graphql",
+  "name": "@quinnjr/prisma-nestjs-graphql",
   "version": "0.0.0-dev",
   "license": "MIT",
   "description": "Generate object types, inputs, args, etc. from prisma schema file for usage with @nestjs/graphql module",
-  "bin": "bin.js",
+  "bin": {
+    "prisma-nestjs-graphql": "bin.js"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/unlight/prisma-nestjs-graphql.git"
+    "url": "git+https://github.com/quinnjr/prisma-nestjs-graphql.git"
   },
-  "homepage": "https://github.com/unlight/prisma-nestjs-graphql",
+  "homepage": "https://github.com/quinnjr/prisma-nestjs-graphql#readme",
   "keywords": [
     "nestjs",
     "graphql",
@@ -36,33 +38,20 @@
     }
   },
   "scripts": {
-    "test": "npm run eslint && npm run tscheck && npm run test:cov",
-    "mocha": "node node_modules/mocha/bin/mocha",
-    "test:r": "npm run mocha -- -r ts-node/register --no-timeouts src/**/*.spec.ts",
-    "test:cov": "c8 --reporter text --exclude \"**/*.spec.ts\" --exclude \"**/test/**\"  npm run test:r",
-    "test:w": "npm run test:r -- --watch-files src --watch",
-    "test:d": "ndb -r @swc/register node_modules/mocha/bin/_mocha --no-timeouts --watch-files src/**/*.ts --watch src/**/*.spec.ts",
-    "tscheck": "tsc --noEmit",
-    "tscheck:w": "npm run tscheck -- --watch",
-    "eslint": "node node_modules/eslint/bin/eslint \"src/**/*.{ts,tsx}\"",
-    "eslint:w": "watchexec -w src \"npm run eslint\"",
-    "eslint:fix": "npm run eslint -- --fix",
     "build": "sh Taskfile build",
-    "prisma:g": "node node_modules/prisma/build/index.js generate",
-    "prisma:custom:g": "node node_modules/prisma/build/index.js generate --schema=./custom-package-generator/schema.prisma",
-    "format": "npx prettier ./@generated --write",
-    "regen": "rm -rf @generated && npm run prisma:g && npm run format",
-    "regen:custom": "rm -rf @generated-custom && npm run prisma:custom:g && npm run format",
-    "rt": "npm run regen && npm test",
+    "check": "pnpm run lint && pnpm run format:check && pnpm run typecheck && pnpm run test",
+    "compatibility": "sh Taskfile compatibility_check",
     "example": "node-dev example/main.ts",
-    "clean_cache": "rm -rf node_modules/.cache",
-    "compatibilty_check": "sh Taskfile compatibilty_check",
-    "commit": "cz"
-  },
-  "config": {
-    "commitizen": {
-      "path": "node_modules/cz-customizable"
-    }
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint --max-warnings 0 \"src/**/*.{ts,tsx}\"",
+    "lint:fix": "eslint --fix \"src/**/*.{ts,tsx}\"",
+    "prisma:g": "prisma generate",
+    "regen": "rm -rf @generated && pnpm run prisma:g && prettier --write @generated",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/generator-helper": "5 - 6",
@@ -89,64 +78,53 @@
     "@nestjs/platform-express": "^11.0.1",
     "@paljs/plugins": "^8.1.0",
     "@prisma/client": "5 - 6",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@semantic-release/github": "^11.0.1",
-    "@swc/core": "^1.10.7",
-    "@swc/helpers": "^0.5.15",
-    "@swc/register": "^0.1.10",
     "@types/flat": "^5.0.5",
     "@types/graceful-fs": "^4.1.9",
     "@types/lodash": "^4.17.14",
-    "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.7",
     "@types/pluralize": "^0.0.33",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
-    "apollo-server-express": "^3.13.0",
-    "c8": "^10.1.3",
+    "@vitest/coverage-v8": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
-    "commitizen": "^4.3.1",
-    "conventional-changelog-conventionalcommits": "^8.0.0",
-    "cz-customizable": "^7.4.0",
     "decimal.js": "^10.4.3",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
-    "eslint-import-resolver-node": "^0.3.9",
-    "eslint-plugin-etc": "^2.0.3",
-    "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-only-warn": "^1.1.0",
     "eslint-plugin-perfectionist": "^4.6.0",
-    "eslint-plugin-prettier": "^5.2.2",
     "eslint-plugin-regexp": "^2.7.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "eslint-plugin-sort-class-members": "^1.21.0",
     "eslint-plugin-unicorn": "^56.0.1",
     "eslint-plugin-wix-editor": "^3.3.0",
-    "expect": "^29.7.0",
     "globals": "^17.14.0",
     "graphql": "^16.10.0",
     "graphql-scalars": "^1.24.0",
     "graphql-type-json": "^0.3.2",
-    "mocha": "^11.0.1",
     "node-dev": "^8.0.0",
-    "ololog": "^1.1.175",
     "pkgroll": "^2.6.1",
-    "precise-commits": "^1.0.2",
     "prettier": "^3.4.2",
     "prisma": "5 - 6",
     "prisma-graphql-type-decimal": "^3.0.0",
     "reflect-metadata": "^0.2.2",
-    "request": "^2.88.2",
     "rxjs": "^7.8.1",
-    "semantic-release": "^24.2.1",
     "simplytyped": "^3.3.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.8.1",
     "type-fest": "^4.32.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
-    "watchexec-bin": "^1.0.0"
-  }
+    "vitest": "^5.1.1"
+  },
+  "bugs": {
+    "url": "https://github.com/quinnjr/prisma-nestjs-graphql/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@12.11.2"
 }

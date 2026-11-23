@@ -181,7 +181,7 @@ let $prisma = new PrismaClient();
   p = x;
   p;
   // x = p; // fails (enumerable)
-  // $prisma.user.groupBy(x); // Error (prisma issue https://github.com/unlight/prisma-nestjs-graphql/issues/31)
+  // $prisma.user.groupBy(x); // Error: Prisma groupBy args types are not assignable from generated args
   // $prisma.user.groupBy(p); // Error
 }
 {

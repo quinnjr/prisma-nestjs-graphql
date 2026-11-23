@@ -3,7 +3,7 @@ import 'eslint-plugin-only-warn';
 import globals from 'globals';
 import pluginJs from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import prettier from 'eslint-plugin-prettier/recommended';
+import prettier from 'eslint-config-prettier/flat';
 import * as unicorn from 'eslint-plugin-unicorn';
 import perfectionist from 'eslint-plugin-perfectionist';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';

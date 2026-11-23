@@ -9,14 +9,18 @@ import {
   Query,
   Resolver,
 } from '@nestjs/graphql';
-import expect from 'expect';
-import { graphql, printSchema } from 'graphql';
 import JSON5 from 'json5';
+import { createRequire } from 'module';
 import { EnumMemberStructure, OptionalKind, Project, ts } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { extractEnumValueDocumentation } from '../helpers/enum-value-documentation';
 import { testSourceFile } from './helpers';
 import { testGenerate } from './test-generate';
+
+// NestJS loads the CommonJS build of graphql, use the same module instance
+const cjsRequire = createRequire(__filename);
+const { graphql, printSchema } = cjsRequire('graphql') as typeof import('graphql');
 
 const schemaModel = `
   model User {
@@ -62,7 +66,7 @@ describe('enum values from comments', () => {
   const roleInitializer = (member: string) =>
     initializerOf(project, 'role.enum.ts', 'Role', member);
 
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       schema: `
         enum Role {
@@ -365,7 +369,7 @@ describe('custom enum values in graphql schema', () => {
   let schemaText: string;
   let execute: (query: string) => Promise<unknown>;
 
-  before(async () => {
+  beforeAll(async () => {
     const { project } = await testGenerate({
       schema: `
         enum Role {
@@ -388,7 +392,7 @@ describe('custom enum values in graphql schema', () => {
       moduleRequire: NodeJS.Require,
       moduleExports: object,
     ) => void;
-    runModule(require, moduleExports);
+    runModule(cjsRequire, moduleExports);
     const Role = moduleExports.Role!;
 
     @ObjectType()

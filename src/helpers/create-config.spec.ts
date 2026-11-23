@@ -1,4 +1,4 @@
-import expect from 'expect';
+import { describe, expect, it } from 'vitest';
 
 import { ReExport } from '../handlers/re-export';
 import { createConfig } from './create-config';

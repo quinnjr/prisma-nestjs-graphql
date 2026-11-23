@@ -1,4 +1,4 @@
-# prisma-nestjs-graphql
+# @quinnjr/prisma-nestjs-graphql
 
 Generate object types, inputs, args, etc. from prisma schema file for usage with @nestjs/graphql module.
 
@@ -10,8 +10,8 @@ Generate object types, inputs, args, etc. from prisma schema file for usage with
 
 ## Install
 
-```
-npm install --save-dev prisma-nestjs-graphql
+```sh
+pnpm add -D @quinnjr/prisma-nestjs-graphql
 ```
 
 ## Usage
@@ -20,8 +20,8 @@ npm install --save-dev prisma-nestjs-graphql
 
 ```prisma
 generator nestgraphql {
-    provider = "node node_modules/prisma-nestjs-graphql"
-    // for yarn monorepos
+    provider = "node node_modules/@quinnjr/prisma-nestjs-graphql"
+    // or the package binary, e.g. in monorepos
     // provider = "prisma-nestjs-graphql"
     output = "../src/@generated"
 }
@@ -30,14 +30,13 @@ generator nestgraphql {
 2. Run prisma generate
 
 ```sh
-npx prisma generate
+pnpm exec prisma generate
 ```
 
 3. If your models have `Decimal` and `Json` types, you need install:
 
 ```sh
-npm install graphql-type-json prisma-graphql-type-decimal
-
+pnpm add graphql-type-json prisma-graphql-type-decimal
 ```
 
 - [graphql-type-json](https://github.com/taion/graphql-type-json)
@@ -102,7 +101,7 @@ Example configuration:
 
 ```prisma
 generator nestgraphql {
-    provider = "node node_modules/prisma-nestjs-graphql"
+    provider = "node node_modules/@quinnjr/prisma-nestjs-graphql"
     output = "../src/@generated"
     reExport = Directories
 }
@@ -149,7 +148,6 @@ Default: `false`
 #### `requireSingleFieldsInWhereUniqueInput`
 
 When a model `*WhereUniqueInput` class has only a single field, mark that field as **required** (TypeScript) and **not nullable** (GraphQL).  
-See [#58](https://github.com/unlight/prisma-nestjs-graphql/issues/58) for more details.  
 Type: `boolean`  
 Default: `false`  
 **Note**: It will break compatiblity between Prisma types and generated classes.
@@ -157,7 +155,6 @@ Default: `false`
 #### `unsafeCompatibleWhereUniqueInput`
 
 Set TypeScript property type as non optional for all fields in `*WhereUniqueInput` classes.
-See [#177](https://github.com/unlight/prisma-nestjs-graphql/issues/177) for more details.  
 Type: `boolean`  
 Default: `false`
 
@@ -206,7 +203,7 @@ to set `UserWhereInput` need to configure generator the following way:
 
 ```prisma
 generator nestgraphql {
-  provider = "node node_modules/prisma-nestjs-graphql"
+  provider = "node node_modules/@quinnjr/prisma-nestjs-graphql"
   output = "../src/@generated"
   useInputType_WhereInput_ALL = "WhereInput"
 }
@@ -812,7 +809,7 @@ Map between member names and values when passing data between Prisma and GraphQL
 ### Using library in other generators
 
 ```ts
-import { generate } from 'prisma-nestjs-graphql/generate';
+import { generate } from '@quinnjr/prisma-nestjs-graphql/generate';
 ```
 
 ## Similar Projects
@@ -830,10 +827,8 @@ import { generate } from 'prisma-nestjs-graphql/generate';
 
 ## Resources
 
-- Todo - <https://github.com/unlight/prisma-nestjs-graphql/issues/2>
 - <https://github.com/prisma/prisma/blob/main/packages/client/src/generation/TSClient/TSClient.ts>
 - <https://ts-ast-viewer.com/>
-- <https://github.com/unlight/nestjs-graphql-prisma-realworld-example-app>
 - <https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-model>
 - JSON type for the code first approach - <https://github.com/nestjs/graphql/issues/111#issuecomment-631452899>
 - <https://github.com/paljs/prisma-tools/tree/master/packages/plugins>
@@ -848,4 +843,4 @@ import { generate } from 'prisma-nestjs-graphql/generate';
 
 ## License
 
-[MIT License](https://opensource.org/licenses/MIT) (c) 2025
+[MIT License](LICENSE)

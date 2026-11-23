@@ -1,7 +1,7 @@
-import expect from 'expect';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'graceful-fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { getBytesType, getPrismaClientMajor } from './get-bytes-type';
 
@@ -22,7 +22,7 @@ describe('getBytesType', () => {
 describe('getPrismaClientMajor', () => {
   let projectDirectory: string;
 
-  before(() => {
+  beforeAll(() => {
     projectDirectory = mkdtempSync(join(tmpdir(), 'prisma-client-major-'));
     const clientDirectory = join(projectDirectory, 'node_modules', '@prisma', 'client');
     mkdirSync(clientDirectory, { recursive: true });
@@ -33,7 +33,7 @@ describe('getPrismaClientMajor', () => {
     mkdirSync(join(projectDirectory, 'prisma'));
   });
 
-  after(() => {
+  afterAll(() => {
     rmSync(projectDirectory, { force: true, recursive: true });
   });
 

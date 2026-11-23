@@ -1,12 +1,12 @@
-import { expect } from 'expect';
 import { Project } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { testSourceFile } from './helpers';
 import { testGenerate } from './test-generate';
 
 describe('decimal type', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -102,7 +102,7 @@ describe('decimal type', () => {
 
 describe('decimal graphql', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       schema: `
         model User {
@@ -299,7 +299,7 @@ describe('decimal graphql', () => {
 
 describe('decimal graphql noAtomicOperations', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: `
         noAtomicOperations = true
@@ -340,7 +340,7 @@ describe('decimal graphql noAtomicOperations', () => {
 
 describe('nested object decorate', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: `
         noAtomicOperations = true
