@@ -6,7 +6,7 @@ import type AwaitEventEmitterType from 'await-event-emitter';
  * to the whole module object, so the class has to be read from `.default`.
  * Construct emitters through this export, never through a default import.
  */
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- see interop note above
 export const { default: AwaitEventEmitter } = require('await-event-emitter') as {
   default: typeof AwaitEventEmitterType;
 };

@@ -1,7 +1,7 @@
-import AwaitEventEmitter from 'await-event-emitter';
 import { partition } from 'lodash';
 import { PropertyDeclarationStructure } from 'ts-morph';
 
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { DMMF } from '../types';
 
 export function emitSingle(emitter: AwaitEventEmitter) {

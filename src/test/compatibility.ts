@@ -145,8 +145,9 @@ let $prisma = new PrismaClient();
   let x: UserMaxOrderByAggregateInput = {};
   let p: Prisma.UserMaxOrderByAggregateInput = {};
   p = x; // To prisma
-  // FIXME: Skip is not assignable to type asc | desc | undefined
-  // x = p; // Prisma to own object type
+  // Only generated -> Prisma is checked: with the strictUndefinedChecks preview
+  // feature Prisma order-by fields also accept `Prisma.Skip`, which has no
+  // GraphQL counterpart, so Prisma -> generated is intentionally not assignable.
 }
 {
   let x: UserCreateInput = {} as unknown as UserCreateInput;

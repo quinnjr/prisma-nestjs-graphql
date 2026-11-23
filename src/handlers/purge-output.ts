@@ -1,6 +1,6 @@
-import AwaitEventEmitter from 'await-event-emitter';
 import { rmdirSync } from 'graceful-fs';
 
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { EventArguments } from '../types';
 
 export function purgeOutput(emitter: AwaitEventEmitter) {

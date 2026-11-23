@@ -1,4 +1,3 @@
-import AwaitEventEmitter from 'await-event-emitter';
 import {
   Directory,
   ExportDeclarationStructure,
@@ -6,6 +5,7 @@ import {
   StructureKind,
 } from 'ts-morph';
 
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { EventArguments } from '../types';
 
 export enum ReExport {

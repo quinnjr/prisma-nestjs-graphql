@@ -77,9 +77,8 @@ export async function generate(
   }
   eventEmitter.on('GenerateFiles', generateFiles);
 
-  for (const message of config.$warnings) {
-    eventEmitter.emitSync('Warning', message);
-  }
+  // Emitted after connectCallback, so library users can listen to them
+  const warnings = [...config.$warnings];
 
   const project = new Project({
     manipulationSettings: {
@@ -130,22 +129,37 @@ export async function generate(
   });
   const { datamodel, schema } = JSON.parse(JSON.stringify(dmmf)) as Document;
   const removeTypes = new Set<string>();
+  // Parsed once: registerEnum writes members from it, field types depend on it
+  const enumValueDocumentation = Object.fromEntries(
+    datamodel.enums.map(
+      enumType =>
+        [
+          enumType.name,
+          extractEnumValueDocumentation(enumType.name, enumType.values),
+        ] as const,
+    ),
+  );
   // Fields of enums with custom `@value(...)` member values are typed by member names
   const customValueEnums = new Set(
-    datamodel.enums
-      .filter(enumType =>
-        Object.values(
-          extractEnumValueDocumentation(enumType.name, enumType.values),
-        ).some(documentation => documentation?.value !== undefined),
+    Object.entries(enumValueDocumentation)
+      .filter(([, documentation]) =>
+        Object.values(documentation).some(member => member?.value !== undefined),
       )
-      .map(enumType => enumType.name),
+      .map(([name]) => name),
   );
+  const prismaClientVersion = getPrismaClientMajor(args.schemaPath);
+  if (prismaClientVersion.major === undefined) {
+    warnings.push(
+      `${prismaClientVersion.reason}, assuming Prisma Client >= 6 (Bytes as Uint8Array)`,
+    );
+  }
   const eventArguments: EventArguments = {
-    bytesType: getBytesType(getPrismaClientMajor(args.schemaPath)),
+    bytesType: getBytesType(prismaClientVersion.major),
     classTransformerTypeModels: new Set(),
     config,
     customValueEnums,
     enums: mapKeys(datamodel.enums, x => x.name),
+    enumValueDocumentation,
     eventEmitter,
     fieldSettings,
     getModelName,
@@ -162,6 +176,10 @@ export async function generate(
 
   if (connectCallback) {
     await connectCallback(eventEmitter, eventArguments);
+  }
+
+  for (const message of warnings) {
+    eventEmitter.emitSync('Warning', message);
   }
 
   await eventEmitter.emit('Begin', eventArguments);

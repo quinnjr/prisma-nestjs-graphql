@@ -1,5 +1,4 @@
-import AwaitEventEmitter from 'await-event-emitter';
-
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { EventArguments, InputType } from '../types';
 
 export function noAtomicOperations(eventEmitter: AwaitEventEmitter) {

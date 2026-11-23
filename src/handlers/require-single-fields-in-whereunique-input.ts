@@ -1,5 +1,4 @@
-import AwaitEventEmitter from 'await-event-emitter';
-
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { isWhereUniqueInputType } from '../helpers/is-where-unique-input-type';
 import { EventArguments, InputType } from '../types';
 

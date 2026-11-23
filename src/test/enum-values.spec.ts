@@ -360,6 +360,43 @@ describe('extractEnumValueDocumentation', () => {
     });
   });
 
+  for (const documentation of [
+    '@value-based pricing',
+    '@Value of the item',
+    '@VALUE: legacy',
+  ]) {
+    it(`keeps "${documentation}" as description`, () => {
+      expect(extract(documentation)).toEqual({ description: documentation });
+    });
+  }
+
+  it('rejects two members with the same custom value', () => {
+    expect(() =>
+      extractEnumValueDocumentation('Role', [
+        { documentation: '@value("x")', name: 'A' },
+        { documentation: '@value("x")', name: 'B' },
+      ]),
+    ).toThrow('Duplicate enum value "x" for Role.A and Role.B');
+  });
+
+  it('rejects custom value equal to another member name', () => {
+    expect(() =>
+      extractEnumValueDocumentation('Role', [
+        { documentation: '@value("ADMIN")', name: 'USER' },
+        { name: 'ADMIN' },
+      ]),
+    ).toThrow('Duplicate enum value "ADMIN" for Role.USER and Role.ADMIN');
+  });
+
+  it('allows same text as string and number', () => {
+    expect(
+      extractEnumValueDocumentation('Role', [
+        { documentation: '@value("1")', name: 'A' },
+        { documentation: '@value(1)', name: 'B' },
+      ]),
+    ).toEqual({ A: { value: '1' }, B: { value: 1 } });
+  });
+
   it('ignores members without documentation', () => {
     expect(extractEnumValueDocumentation('Role', [{ name: 'X' }])).toEqual({});
   });

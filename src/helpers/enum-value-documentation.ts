@@ -9,8 +9,11 @@ export type EnumValueDocumentation = {
   value?: string | number;
 };
 
-/** A comment line that starts with `@value` (any case) is a value directive */
-const directiveStartPattern = /^@value\b/i;
+/**
+ * A comment line shaped like a directive call, `@value(` in any case and
+ * spacing, is a value directive. Prose like `@value-based` stays text.
+ */
+const directiveStartPattern = /^@value\s*\(/i;
 /** A valid directive: the whole line is `@value(<argument>)` */
 const directivePattern = /^@value\((.*)\)$/;
 
@@ -31,7 +34,32 @@ export function extractEnumValueDocumentation(
     }
   }
 
+  assertUniqueValues(enumName, values, result);
+
   return result;
+}
+
+/**
+ * Two members with the same value (custom, or a member name used as default)
+ * would make GraphQL serialize one member as the other.
+ */
+function assertUniqueValues(
+  enumName: string,
+  values: readonly { name: string }[],
+  documentation: Partial<Record<string, EnumValueDocumentation>>,
+) {
+  const memberByValue = new Map<string | number, string>();
+
+  for (const { name } of values) {
+    const value = documentation[name]?.value ?? name;
+    const otherName = memberByValue.get(value);
+    if (otherName !== undefined) {
+      throw new Error(
+        `Duplicate enum value ${JSON.stringify(value)} for ${enumName}.${otherName} and ${enumName}.${name}`,
+      );
+    }
+    memberByValue.set(value, name);
+  }
 }
 
 /**

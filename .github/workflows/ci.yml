@@ -4,13 +4,17 @@ on:
   push:
     branches: [master]
   pull_request:
+  # Called by publish.yml so a release runs the full check suite first
+  workflow_call:
 
 permissions:
   contents: read
 
+# When called from another workflow, github.workflow and github.event_name are
+# the caller's, so a release run never shares a group with push/pull_request runs
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -22,6 +26,8 @@ jobs:
         node: [22, 24]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -31,7 +37,13 @@ jobs:
       - name: Regenerate @generated
         run: pnpm run regen
       - name: Generated code is up to date
-        run: git diff --exit-code -- @generated
+        run: |
+          changes="$(git status --porcelain -- @generated)"
+          if [ -n "$changes" ]; then
+            echo "::error::@generated is out of date, run 'pnpm run regen' and commit the result"
+            echo "$changes"
+            exit 1
+          fi
       - run: pnpm run lint
       - run: pnpm run format:check
       - run: pnpm run typecheck

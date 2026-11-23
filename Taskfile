@@ -12,11 +12,13 @@ build() {
   pkgroll --target=es2020 --export-condition=node
   jq '.main = "./index.cjs"
     | .types = "./index.d.ts"
-    | .exports.".".require = "./index.cjs"
     | .exports.".".types = "./index.d.ts"
+    | .exports.".".require = "./index.cjs"
+    | .exports.".".default = "./index.cjs"
     | .typesVersions."*".generate = ["./generate.d.ts"]
-    | .exports."./generate".require = "./generate.cjs"
     | .exports."./generate".types = "./generate.d.ts"
+    | .exports."./generate".require = "./generate.cjs"
+    | .exports."./generate".default = "./generate.cjs"
     | del(.devDependencies, .scripts, .packageManager)' package.json >dist/package.json
   set +x
 }
@@ -29,42 +31,58 @@ compatibility_check() {
   backup=$(mktemp)
   cp "$schema" "$backup"
   trap 'cp "$backup" "$schema"; rm -f "$backup"' EXIT
+  # dash does not run the EXIT trap on signals; exit explicitly so it does
+  trap 'exit 130' INT TERM
 
-  set_option() {
+  reset_schema() {
     cp "$backup" "$schema"
+  }
+  set_option() {
+    if ! grep -Eq "^\s*$1\s*=" "$schema"; then
+      echo "Generator option '$1' not found in $schema" >&2
+      exit 1
+    fi
     sed -i -E "s/^(\s*$1\s*=\s*).*/\1$2/" "$schema"
   }
+  # Called as plain commands (never in && / || lists) so that set -e applies
   regenerate() {
     rm -rf ./@generated
-    prisma generate
+    prisma generate || return 1
   }
 
   set -x
-  regenerate && tsc --noEmit
+  regenerate
+  tsc --noEmit
 
   for option in noAtomicOperations combineScalarFilters requireSingleFieldsInWhereUniqueInput; do
     echo "=== Check $option ==="
+    reset_schema
     set_option "$option" true
-    regenerate && tsc --noEmit
+    regenerate
+    tsc --noEmit
   done
 
   echo "=== Check reExport ==="
+  reset_schema
   set_option reExport All
-  regenerate && tsc --noEmit
+  regenerate
+  tsc --noEmit
 
   echo "=== Check emitSingle ==="
+  reset_schema
   set_option emitSingle true
   regenerate
   tsc --noEmit --skipLibCheck --experimentalDecorators ./@generated/index.ts
   ts-node ./@generated/index.ts
 
   echo "=== Check emitCompiled ==="
+  reset_schema
   set_option emitSingle true
-  sed -i -E "s/^(\s*emitCompiled\s*=\s*).*/\1true/" "$schema"
+  set_option emitCompiled true
   regenerate
   node ./@generated/index.js
 
-  cp "$backup" "$schema"
+  reset_schema
   regenerate
   prettier --write ./@generated >/dev/null
   set +x

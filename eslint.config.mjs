@@ -120,12 +120,36 @@ export default [
       // simple-import-sort with recomended settings
       'simple-import-sort/imports': 1,
       'sort-imports': 'off',
-      'import/order': 'off',
       // typescript-eslint
       '@typescript-eslint/no-floating-promises': 1,
       '@typescript-eslint/no-unnecessary-condition': 1,
       '@typescript-eslint/explicit-module-boundary-types': 0,
       '@typescript-eslint/unbound-method': 0,
+    },
+  },
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'warn',
+        {
+          paths: [
+            {
+              name: 'await-event-emitter',
+              allowTypeImports: true,
+              message:
+                'Construct emitters via src/helpers/await-event-emitter (bundled default-import interop); type-only imports are fine.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The only allowed value import of await-event-emitter
+    files: ['src/helpers/await-event-emitter.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
   {
@@ -139,12 +163,10 @@ export default [
       '@typescript-eslint/no-unsafe-member-access': 0,
       '@typescript-eslint/no-floating-promises': 0,
       '@typescript-eslint/no-non-null-assertion': 0,
-      '@typescript-eslint/camelcase': 0,
       '@typescript-eslint/no-unsafe-assignment': 0,
       '@typescript-eslint/no-unused-vars': 0,
       '@typescript-eslint/no-unsafe-return': 0,
       '@typescript-eslint/no-non-null-asserted-optional-chain': 0,
-      'import/max-dependencies': 0,
     },
   },
 ];

@@ -2,7 +2,6 @@ import JSON5 from 'json5';
 import { omit } from 'lodash';
 import { EnumDeclarationStructure, StructureKind } from 'ts-morph';
 
-import { extractEnumValueDocumentation } from '../helpers/enum-value-documentation';
 import { ImportDeclarationMap } from '../helpers/import-declaration-map';
 import { EventArguments, SchemaEnum } from '../types';
 
@@ -14,7 +13,6 @@ export function registerEnum(enumType: SchemaEnum, args: EventArguments) {
   }
 
   const dataModelEnum = enums[enumType.name];
-  const enumTypesData = dataModelEnum?.values || [];
   const sourceFile = getSourceFile({
     name: enumType.name,
     type: 'enum',
@@ -27,10 +25,7 @@ export function registerEnum(enumType: SchemaEnum, args: EventArguments) {
     namedImports: [{ name: 'registerEnumType' }],
   });
 
-  const valueDocumentation = extractEnumValueDocumentation(
-    enumType.name,
-    enumTypesData,
-  );
+  const valueDocumentation = args.enumValueDocumentation[enumType.name] ?? {};
 
   // GraphQL metadata only (description, deprecationReason), without TypeScript `value`
   const graphqlValuesMap = Object.fromEntries(

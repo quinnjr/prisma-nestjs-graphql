@@ -147,10 +147,12 @@ Default: `false`
 
 #### `requireSingleFieldsInWhereUniqueInput`
 
-When a model `*WhereUniqueInput` class has only a single field, mark that field as **required** (TypeScript) and **not nullable** (GraphQL).  
+When a model has exactly one unique field (an `@id`, an `@unique` field, or a single `@@id` / `@@unique` compound),
+mark that field as **required** (TypeScript) and **not nullable** (GraphQL) in its `*WhereUniqueInput` class.
+`AND`, `OR`, `NOT` and the other filter fields stay optional.  
 Type: `boolean`  
 Default: `false`  
-**Note**: It will break compatiblity between Prisma types and generated classes.
+**Note**: It changes the generated GraphQL schema: the unique field becomes non-null in the `*WhereUniqueInput` input type.
 
 #### `unsafeCompatibleWhereUniqueInput`
 
@@ -812,6 +814,58 @@ Map between member names and values when passing data between Prisma and GraphQL
 import { generate } from '@quinnjr/prisma-nestjs-graphql/generate';
 ```
 
+## Development
+
+```sh
+pnpm install
+pnpm run check          # lint, format check, typecheck and tests
+pnpm run regen          # regenerate @generated from prisma/schema.prisma
+pnpm run compatibility  # regenerate with each generator option and typecheck the result
+pnpm run test:watch     # run tests in watch mode
+```
+
+## Releasing
+
+Releases are published to npm by the [publish workflow](.github/workflows/publish.yml)
+with npm trusted publishing (no npm token is stored).
+
+1. Create a GitHub release with a tag `vX.Y.Z` on a commit that is on `master`.
+   Write the release notes in the GitHub release.
+2. The package version comes from the tag; `version` in `package.json` stays `0.0.0-dev`.
+3. Prerelease tags such as `vX.Y.Z-rc.N` must be marked as **pre-release** on GitHub
+   and are published under the `next` dist-tag; other releases are published under `latest`.
+   The workflow fails if the tag and the pre-release flag disagree.
+
+The workflow runs the full CI suite, builds the package in a job without access to the
+OIDC token, then publishes the built artifact from a separate job in the `npm` environment.
+
+### One-time npm setup
+
+Trusted publishing is configured on the settings page of an existing package,
+so the first version must be published manually:
+
+```sh
+pnpm run build
+jq '.version = "1.0.0"' dist/package.json > dist/package.tmp.json
+mv dist/package.tmp.json dist/package.json
+npm login
+npm publish ./dist --access public
+```
+
+Then on npmjs.com open the package, **Settings** → **Trusted publishing** → **GitHub Actions** and enter:
+
+| Field             | Value                   |
+| ----------------- | ----------------------- |
+| Owner             | `quinnjr`               |
+| Repository        | `prisma-nestjs-graphql` |
+| Workflow filename | `publish.yml`           |
+| Environment       | `npm`                   |
+
+In the same settings set **Publishing access** to require two-factor authentication and disallow tokens.
+
+On GitHub, configure the `npm` environment (repository **Settings** → **Environments** → `npm`)
+with deployment tag rules that allow only `v*` tags.
+
 ## Similar Projects
 
 - <https://github.com/jasonraimondi/prisma-generator-nestjs-graphql>
@@ -833,13 +887,6 @@ import { generate } from '@quinnjr/prisma-nestjs-graphql/generate';
 - JSON type for the code first approach - <https://github.com/nestjs/graphql/issues/111#issuecomment-631452899>
 - <https://github.com/paljs/prisma-tools/tree/master/packages/plugins>
 - <https://github.com/wasp-lang/wasp>
-
-## TODO
-
-- keyof typeof SortOrder -> `SortOrder`
-- dummy-createfriends.input.ts -> `create-friends`
-- check 'TODO FIXME'
-- 22.12 node require esm (update all deps to latest)
 
 ## License
 

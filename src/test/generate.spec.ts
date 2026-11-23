@@ -428,7 +428,7 @@ describe('one model with scalar types', () => {
       });
 
       it('money', () => {
-        expect(p('money')?.type).toEqual('Decimal');
+        expect(p('money')?.type).toEqual('Prisma.Decimal');
       });
     });
 
@@ -688,7 +688,7 @@ describe('nullish compatibility', () => {
 
   it('money', () => {
     const s = testSourceFile({ file: 'user.model.ts', project, property: 'money' });
-    expect(s.property?.type).toEqual('Decimal | null');
+    expect(s.property?.type).toEqual('Prisma.Decimal | null');
     expect(s.property?.hasQuestionToken).toBe(false);
     expect(imports).toContainEqual({
       name: 'GraphQLDecimal',
@@ -2201,6 +2201,7 @@ describe('requireSingleFieldsInWhereUniqueInput', () => {
       schema: `
                 model User {
                     id String @id
+                    name String
                 }
         `,
     }));
@@ -2216,6 +2217,17 @@ describe('requireSingleFieldsInWhereUniqueInput', () => {
 
     expect(s.fieldDecoratorType).toEqual('() => String');
     expect(s.fieldDecoratorOptions).toEqual('{nullable:false}');
+
+    // Only the unique field is required, filters stay optional
+    for (const property of ['AND', 'OR', 'NOT', 'name']) {
+      const optional = testSourceFile({
+        file: 'user-where-unique.input.ts',
+        project,
+        property,
+      });
+      expect(optional.property?.hasQuestionToken, property).toEqual(true);
+      expect(optional.fieldDecoratorOptions, property).toEqual('{nullable:true}');
+    }
   });
 
   it('requireSingleFieldsInWhereUniqueInput compound', async () => {
@@ -2244,6 +2256,39 @@ describe('requireSingleFieldsInWhereUniqueInput', () => {
     expect(s.property?.type).toEqual('UserNameEmailCompoundUniqueInput');
     expect(s.fieldDecoratorType).toEqual('() => UserNameEmailCompoundUniqueInput');
     expect(s.fieldDecoratorOptions).toEqual('{nullable:false}');
+
+    for (const property of ['AND', 'name', 'email']) {
+      const optional = testSourceFile({
+        file: 'user-where-unique.input.ts',
+        project,
+        property,
+      });
+      expect(optional.property?.hasQuestionToken, property).toEqual(true);
+    }
+  });
+
+  it('requireSingleFieldsInWhereUniqueInput ignores several unique fields', async () => {
+    ({ project } = await testGenerate({
+      options: [
+        `outputFilePattern = "{name}.{type}.ts"`,
+        `requireSingleFieldsInWhereUniqueInput = true`,
+      ],
+      schema: `
+                model User {
+                  id    String @id
+                  email String @unique
+                }
+            `,
+    }));
+
+    for (const property of ['id', 'email']) {
+      const s = testSourceFile({
+        file: 'user-where-unique.input.ts',
+        project,
+        property,
+      });
+      expect(s.property?.hasQuestionToken, property).toEqual(true);
+    }
   });
 });
 
@@ -2352,6 +2397,38 @@ describe('multiple description', () => {
  * Model 2
  */`);
   });
+});
+
+describe('complexity', () => {
+  beforeAll(async () => {
+    ({ project } = await testGenerate({
+      options: [`outputFilePattern = "{name}.{type}.ts"`],
+      schema: `
+        model User {
+          id Int @id
+          /// @complexity 5
+          five String
+          /// @complexity 0
+          zero String
+          /// @complexity abc
+          invalid String
+        }`,
+    }));
+  });
+
+  for (const [property, complexity] of [
+    ['five', 5],
+    ['zero', 1],
+    ['invalid', 1],
+  ] as const) {
+    it(`${property} complexity is ${String(complexity)}`, () => {
+      const s = testSourceFile({ class: 'User', project, property });
+
+      expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
+        expect.objectContaining({ complexity }),
+      );
+    });
+  }
 });
 
 describe('deprecation reason', () => {

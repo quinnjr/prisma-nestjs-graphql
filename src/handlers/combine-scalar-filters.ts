@@ -1,7 +1,7 @@
-import AwaitEventEmitter from 'await-event-emitter';
 import { cloneDeep, keyBy, remove } from 'lodash';
 
 import { BeforeGenerateField } from '../event-names';
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { EventArguments, InputType, SchemaArgument } from '../types';
 
 /**

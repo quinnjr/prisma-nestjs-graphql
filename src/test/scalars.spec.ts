@@ -37,3 +37,30 @@ describe('scalars', () => {
     expect(s.property?.type).toEqual("ReturnType<Uint8Array['slice']> | null");
   });
 });
+
+describe('bytes when prisma client version is unknown', () => {
+  it('warns and falls back to latest bytes type', async () => {
+    const warnings: unknown[] = [];
+    const { project } = await testGenerate({
+      generatorOptions: { schemaPath: '/nonexistent-root-dir/schema.prisma' },
+      onConnect: emitter => {
+        emitter.on('Warning', (message: unknown) => {
+          warnings.push(message);
+        });
+      },
+      options: [`outputFilePattern = "{name}.{type}.ts"`],
+      schema: `
+        model User {
+          id String @id
+          bytes Bytes
+        }
+      `,
+    });
+
+    expect(warnings).toContainEqual(
+      '@prisma/client is not resolvable from /nonexistent-root-dir, assuming Prisma Client >= 6 (Bytes as Uint8Array)',
+    );
+    const s = testSourceFile({ file: 'user.model.ts', project, property: 'bytes' });
+    expect(s.property?.type).toEqual("ReturnType<Uint8Array['slice']>");
+  });
+});

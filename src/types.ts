@@ -1,9 +1,10 @@
 import { DMMF } from '@prisma/client/runtime/library';
-import AwaitEventEmitter from 'await-event-emitter';
 import { Project, SourceFile } from 'ts-morph';
 import type { WritableDeep } from 'type-fest';
 
+import type { AwaitEventEmitter } from './helpers/await-event-emitter';
 import { createConfig } from './helpers/create-config';
+import type { EnumValueDocumentation } from './helpers/enum-value-documentation';
 import { ObjectSettings } from './helpers/object-settings';
 
 export type InputType = WritableDeep<DMMF.InputType>;
@@ -36,6 +37,10 @@ export type EventArguments = {
   bytesType: string;
   /** Enums with custom `@value(...)` member values, their fields are typed by member names */
   customValueEnums: Set<string>;
+  /** Parsed `@value`/description/deprecation comments of datamodel enum values, by enum name */
+  enumValueDocumentation: Partial<
+    Record<string, Partial<Record<string, EnumValueDocumentation>>>
+  >;
   schema: Schema;
   models: Map<string, Model>;
   modelNames: string[];

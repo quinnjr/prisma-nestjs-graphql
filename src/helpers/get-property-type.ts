@@ -27,7 +27,8 @@ export function getPropertyType(args: {
       return ['Date', 'string'];
     }
     case 'Decimal': {
-      return ['Decimal'];
+      // Public Prisma namespace type, `runtime/library` is internal to Prisma Client
+      return ['Prisma.Decimal'];
     }
     case 'Json': {
       return ['any'];

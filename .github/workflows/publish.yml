@@ -1,10 +1,7 @@
-# Publishes to npm with trusted publishing (OIDC), no npm token is stored.
-# npm package settings -> Trusted publishing -> GitHub Actions:
-#   organization/user: quinnjr
-#   repository:        prisma-nestjs-graphql
-#   workflow filename: publish.yml
-#   environment:       npm
-# Release: create a GitHub release with tag vX.Y.Z (vX.Y.Z-rc.1 publishes under "next").
+# Publishes to npm with trusted publishing (OIDC); no npm token is stored.
+# Release process and the one-time npm setup: see "Releasing" in README.md.
+# npm trusted publisher: owner quinnjr, repository prisma-nestjs-graphql,
+# workflow publish.yml, environment npm.
 name: Publish
 
 on:
@@ -19,24 +16,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-    environment: npm
+  check:
+    name: CI
     permissions:
       contents: read
-      id-token: write # OIDC token for npm trusted publishing and provenance
+    uses: ./.github/workflows/ci.yml
+
+  # Builds the package without access to the OIDC token
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      dist-tag: ${{ steps.version.outputs.dist-tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Verify the release commit is on master
+        run: |
+          git fetch --no-tags origin +refs/heads/master:refs/remotes/origin/master
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "::error::Release commit $GITHUB_SHA is not on master"
+            exit 1
+          fi
       - name: Resolve version from release tag
         id: version
         env:
           TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           version="${TAG#v}"
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
@@ -45,15 +56,22 @@ jobs:
           fi
           if [[ "$version" == *-* ]]; then
             dist_tag=next
+            expected_prerelease=true
           else
             dist_tag=latest
+            expected_prerelease=false
+          fi
+          if [[ "$PRERELEASE" != "$expected_prerelease" ]]; then
+            echo "::error::Release tag '$TAG' requires the GitHub release pre-release flag to be $expected_prerelease (it is $PRERELEASE)"
+            exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "dist-tag=$dist_tag" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run lint
-      - run: pnpm run typecheck
-      - run: pnpm run test
       - run: pnpm run build
       - name: Set package version
         env:
@@ -61,10 +79,40 @@ jobs:
         run: |
           jq --arg version "$VERSION" '.version = $version' dist/package.json > dist/package.tmp.json
           mv dist/package.tmp.json dist/package.json
-      # Trusted publishing needs the npm CLI >= 11.5.1; pnpm only builds the package
-      - name: Update npm
-        run: npm install --global npm@^11.5.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
+          include-hidden-files: false
+          if-no-files-found: error
+
+  # Only this job can mint the OIDC token; it runs no repository code
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # OIDC token for npm trusted publishing and provenance
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs the npm CLI >= 11.5.1
+      - name: Ensure npm >= 11.5.1
+        run: |
+          current="$(npm --version)"
+          if ! printf '%s\n' 11.5.1 "$current" | sort --version-sort --check=quiet; then
+            npm install --global npm@11.21.3
+          fi
+          npm --version
       - name: Publish
         env:
-          DIST_TAG: ${{ steps.version.outputs.dist-tag }}
+          DIST_TAG: ${{ needs.build.outputs.dist-tag }}
         run: npm publish ./dist --provenance --access public --tag "$DIST_TAG"

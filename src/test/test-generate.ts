@@ -1,15 +1,14 @@
 import { GeneratorOptions } from '@prisma/generator-helper';
 import { ok } from 'assert';
-import AwaitEventEmitter from 'await-event-emitter/types';
 import { execFile } from 'child_process';
 import crypto from 'crypto';
 import fs from 'graceful-fs';
 import { castArray, uniq } from 'lodash';
-import os from 'os';
 import path from 'path';
 import { ImportSpecifierStructure, Project } from 'ts-morph';
 
 import { generate } from '../generate';
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { generateFileName } from '../helpers/generate-file-name';
 import { DMMF, EventArguments } from '../types';
 
@@ -29,8 +28,11 @@ export async function testGenerate(args: {
     type: string;
   };
   onConnect?: (emitter: AwaitEventEmitter) => void;
+  /** Override generator options passed to generate(), e.g. schemaPath */
+  generatorOptions?: Partial<GeneratorOptions>;
 }) {
-  const { createSouceFile, onConnect, options, provider, schema } = args;
+  const { createSouceFile, generatorOptions, onConnect, options, provider, schema } =
+    args;
   let project: Project | undefined;
   const connectCallback = (emitter: AwaitEventEmitter) => {
     if (onConnect) {
@@ -58,6 +60,7 @@ export async function testGenerate(args: {
   };
   await generate({
     ...(await createGeneratorOptions(schema, options, provider)),
+    ...generatorOptions,
     connectCallback,
     skipAddOutputSourceFiles: true,
   });
@@ -112,44 +115,26 @@ export async function testGenerate(args: {
 }
 
 /**
- * Directory for test schema files and the prisma clients generated next to
- * them. It must be inside the project: prisma resolves `@prisma/client` from
- * the schema directory and tries to install it when it cannot be found.
+ * Directory for test schema files, the prisma clients generated next to them
+ * and the cached generator options (which are executed). It is inside the
+ * project, so it is private to the checkout: prisma resolves `@prisma/client`
+ * from the schema directory, and no shared temp directory is involved.
  */
-function prepareSchemaPath(): string {
+function prepareTestPath(): string {
   const result = process.env.CI
-    ? `${process.cwd()}/~prisma-test`
+    ? path.join(process.cwd(), '~prisma-test')
     : path.join(process.cwd(), 'node_modules', '.prisma-nestjs-graphql-test');
-  if (!fs.existsSync(result)) {
-    fs.mkdirSync(result, { recursive: true });
-  }
+  fs.mkdirSync(result, { recursive: true });
   return result;
 }
 
-/**
- * Directory for the cached generator options files (which are executed) and
- * the generated output.
- */
-function prepareCachePath(): string {
-  if (process.env.CI) {
-    const result = `${process.cwd()}/~prisma-test`;
-    if (!fs.existsSync(result)) {
-      fs.mkdirSync(result, { recursive: true });
-    }
-    return result;
-  }
-  // Cached options files are executed, so keep them in a private per-user
-  // directory rather than a shared, world-writable temp location
-  const { uid } = os.userInfo();
-  const result = path.join(os.tmpdir(), `prisma-nestjs-graphql-test-${String(uid)}`);
-  fs.mkdirSync(result, { mode: 0o700, recursive: true });
-  const stat = fs.statSync(result);
-  if (stat.uid !== uid || (stat.mode & 0o077) !== 0) {
-    throw new Error(
-      `Test cache directory ${result} must be owned by uid ${String(uid)} and not accessible by others`,
-    );
-  }
-  return result;
+/** Installed version of a package, part of the cache key */
+function installedVersion(name: string): string {
+  const packageJsonPath = require.resolve(`${name}/package.json`, {
+    paths: [process.cwd()],
+  });
+  return (JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as { version: string })
+    .version;
 }
 
 /**
@@ -174,12 +159,21 @@ async function createGeneratorOptions(
             previewFeatures = ${JSON.stringify(previewFeatures)}
         }
     `;
-  // eslint-disable-next-line prefer-rest-params
-  const hash = createHash(generatorVersion, schemaHeader, arguments);
-  const prismaTestPath = prepareCachePath();
+
+  const hash = createHash(
+    generatorVersion,
+    installedVersion('prisma'),
+    installedVersion('@prisma/client'),
+    schemaHeader,
+    schema,
+    options,
+    provider,
+    previewFeatures,
+  );
+  const prismaTestPath = prepareTestPath();
   const cacheFile = `${prismaTestPath}/options-${hash}.js`;
   if (!fs.existsSync(cacheFile)) {
-    const schemaFile = `${prepareSchemaPath()}/schema-${hash}.prisma`;
+    const schemaFile = `${prismaTestPath}/schema-${hash}.prisma`;
     const schemaContent = `
             ${schemaHeader}
             generator proxy {
