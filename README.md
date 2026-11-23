@@ -750,6 +750,52 @@ model User {
 export class User {}
 ```
 
+#### Enum values
+
+By default each member of a generated TypeScript enum gets its own name as value (`USER = "USER"`).
+A triple-slash comment on an enum value can set a custom string or number value instead,
+either with `@value(...)` (can be combined with a description or `@deprecated`)
+or with a comment that is only a string or number literal.
+Values in the GraphQL schema are not affected, they still use member names.
+
+```prisma
+enum Role {
+  /// @value("user")
+  USER
+  /// 2
+  ADMIN
+  /// Can review articles
+  /// @value('reviewer')
+  REVIEWER
+  /// @deprecated Use USER instead
+  /// @value(10)
+  LEGACY
+  GUEST
+}
+```
+
+```ts
+export enum Role {
+  USER = 'user',
+  ADMIN = 2,
+  REVIEWER = 'reviewer',
+  LEGACY = 10,
+  GUEST = 'GUEST',
+}
+
+registerEnumType(Role, {
+  name: 'Role',
+  description: undefined,
+  valuesMap: {
+    REVIEWER: { description: 'Can review articles' },
+    LEGACY: { deprecationReason: 'Use USER instead' },
+  },
+});
+```
+
+Note: Prisma Client still reads and writes enum members by name (`'USER'`),
+so custom values are meant for the TypeScript/GraphQL layer.
+
 ### Using library in other generators
 
 ```ts

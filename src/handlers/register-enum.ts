@@ -1,13 +1,16 @@
+import { omit } from 'lodash';
 import { EnumDeclarationStructure, StructureKind } from 'ts-morph';
 
 import { ImportDeclarationMap } from '../helpers/import-declaration-map';
 import { EventArguments, SchemaEnum } from '../types';
-import { extractEnumValueDocs } from './prisma-enum-doc';
+import { extractEnumValueDocumentation } from './prisma-enum-documentation';
 
 export function registerEnum(enumType: SchemaEnum, args: EventArguments) {
   const { config, enums, getSourceFile } = args;
 
-  if (!config.emitBlocks.prismaEnums && !enums[enumType.name]) return;
+  if (!config.emitBlocks.prismaEnums && !enums[enumType.name]) {
+    return;
+  }
 
   const dataModelEnum = enums[enumType.name];
   const enumTypesData = dataModelEnum?.values || [];
@@ -24,11 +27,13 @@ export function registerEnum(enumType: SchemaEnum, args: EventArguments) {
   });
 
   // Extract valuesMap from enum documentation
-  const valuesMap = extractEnumValueDocs(enumTypesData);
+  const valuesMap = extractEnumValueDocumentation(enumTypesData);
 
-  // Remove entries with no description or deprecationReason
+  // Keep only graphql metadata (description, deprecationReason) for valuesMap
   const filteredValuesMap = Object.fromEntries(
-    Object.entries(valuesMap).filter(([_, v]) => Object.keys(v).length > 0),
+    Object.entries(valuesMap)
+      .map(([key, info]) => [key, omit(info, 'value')] as const)
+      .filter(([, v]) => Object.keys(v).length > 0),
   );
 
   // Format only if needed
@@ -38,14 +43,20 @@ export function registerEnum(enumType: SchemaEnum, args: EventArguments) {
     : '';
   const valuesMapEntry = hasValuesMap ? `, valuesMap: ${formattedValuesMap}` : '';
 
+  // Custom TypeScript values from comments (`@value(...)` or bare literal)
+  const customValues = new Map(
+    Object.entries(valuesMap).map(([key, info]) => [key, info.value] as const),
+  );
+
   const enumStructure: EnumDeclarationStructure = {
-    kind: StructureKind.Enum,
     isExported: true,
-    name: enumType.name,
+    kind: StructureKind.Enum,
+    // Value from comment overrides default `KEY = "KEY"`
     members: enumType.values.map(v => ({
+      initializer: JSON.stringify(customValues.get(v) ?? v),
       name: v,
-      initializer: JSON.stringify(v),
     })),
+    name: enumType.name,
   };
 
   sourceFile.set({
