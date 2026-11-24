@@ -22,8 +22,9 @@ import { AwaitEventEmitter } from './helpers/await-event-emitter';
 import { createConfig } from './helpers/create-config';
 import { extractEnumValueDocumentation } from './helpers/enum-value-documentation';
 import { factoryGetSourceFile } from './helpers/factory-get-source-file';
-import { getBytesType, getPrismaClientMajor } from './helpers/get-bytes-type';
+import { getBytesType } from './helpers/get-bytes-type';
 import { createGetModelName } from './helpers/get-model-name';
+import { getPrismaClientVersion } from './helpers/prisma-client-version';
 import {
   Document,
   EventArguments,
@@ -77,8 +78,19 @@ export async function generate(
   }
   eventEmitter.on('GenerateFiles', generateFiles);
 
-  // Emitted after connectCallback, so library users can listen to them
+  // Emitted after connectCallback, so library users can listen to them,
+  // or before rethrowing when generation fails earlier
   const warnings = [...config.$warnings];
+  let warningsEmitted = false;
+  const emitWarnings = () => {
+    if (warningsEmitted) {
+      return;
+    }
+    warningsEmitted = true;
+    for (const message of warnings) {
+      eventEmitter.emitSync('Warning', message);
+    }
+  };
 
   const project = new Project({
     manipulationSettings: {
@@ -129,29 +141,38 @@ export async function generate(
   });
   const { datamodel, schema } = JSON.parse(JSON.stringify(dmmf)) as Document;
   const removeTypes = new Set<string>();
-  // Parsed once: registerEnum writes members from it, field types depend on it
-  const enumValueDocumentation = Object.fromEntries(
-    datamodel.enums.map(
-      enumType =>
-        [
-          enumType.name,
-          extractEnumValueDocumentation(enumType.name, enumType.values),
-        ] as const,
-    ),
-  );
-  // Fields of enums with custom `@value(...)` member values are typed by member names
-  const customValueEnums = new Set(
-    Object.entries(enumValueDocumentation)
-      .filter(([, documentation]) =>
-        Object.values(documentation).some(member => member?.value !== undefined),
-      )
-      .map(([name]) => name),
-  );
-  const prismaClientVersion = getPrismaClientMajor(args.schemaPath);
+  const prismaClientVersion = getPrismaClientVersion(args.schemaPath);
   if (prismaClientVersion.major === undefined) {
     warnings.push(
       `${prismaClientVersion.reason}, assuming Prisma Client >= 6 (Bytes as Uint8Array)`,
     );
+  }
+  let enumValueDocumentation: EventArguments['enumValueDocumentation'];
+  let customValueEnums: Set<string>;
+  try {
+    // Parsed once: registerEnum writes members from it, field types depend on it
+    enumValueDocumentation = Object.fromEntries(
+      datamodel.enums.map(
+        enumType =>
+          [
+            enumType.name,
+            extractEnumValueDocumentation(enumType.name, enumType.values),
+          ] as const,
+      ),
+    );
+    // Fields of enums with custom `@value(...)` member values are typed by member names
+    customValueEnums = new Set(
+      Object.entries(enumValueDocumentation)
+        .filter(([, documentation]) =>
+          Object.values(documentation ?? {}).some(
+            member => member?.value !== undefined,
+          ),
+        )
+        .map(([name]) => name),
+    );
+  } catch (error) {
+    emitWarnings();
+    throw error;
   }
   const eventArguments: EventArguments = {
     bytesType: getBytesType(prismaClientVersion.major),
@@ -174,12 +195,12 @@ export async function generate(
     typeNames: new Set<string>(),
   };
 
-  if (connectCallback) {
-    await connectCallback(eventEmitter, eventArguments);
-  }
-
-  for (const message of warnings) {
-    eventEmitter.emitSync('Warning', message);
+  try {
+    if (connectCallback) {
+      await connectCallback(eventEmitter, eventArguments);
+    }
+  } finally {
+    emitWarnings();
   }
 
   await eventEmitter.emit('Begin', eventArguments);

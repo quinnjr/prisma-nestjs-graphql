@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 PATH="$PWD/node_modules/.bin":$PATH
 set -e
 
@@ -47,7 +47,7 @@ compatibility_check() {
   # Called as plain commands (never in && / || lists) so that set -e applies
   regenerate() {
     rm -rf ./@generated
-    prisma generate || return 1
+    prisma generate
   }
 
   set -x

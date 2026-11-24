@@ -141,6 +141,14 @@ export default [
                 'Construct emitters via src/helpers/await-event-emitter (bundled default-import interop); type-only imports are fine.',
             },
           ],
+          patterns: [
+            {
+              group: ['await-event-emitter/*'],
+              allowTypeImports: true,
+              message:
+                'Import the emitter type from src/helpers/await-event-emitter instead of package internals.',
+            },
+          ],
         },
       ],
     },

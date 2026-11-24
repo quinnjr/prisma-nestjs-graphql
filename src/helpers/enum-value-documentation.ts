@@ -21,6 +21,8 @@ const directivePattern = /^@value\((.*)\)$/;
  * Extract graphql enum value metadata (description, deprecationReason)
  * and custom TypeScript member values from triple-slash comments
  * of prisma enum values.
+ * Throws for malformed or repeated `@value` lines and when two members
+ * of the enum end up with the same value.
  */
 export function extractEnumValueDocumentation(
   enumName: string,

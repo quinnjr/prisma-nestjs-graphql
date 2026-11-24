@@ -12,7 +12,7 @@ import {
 import JSON5 from 'json5';
 import { createRequire } from 'module';
 import { EnumMemberStructure, OptionalKind, Project, ts } from 'ts-morph';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { extractEnumValueDocumentation } from '../helpers/enum-value-documentation';
 import { testSourceFile } from './helpers';
@@ -294,6 +294,29 @@ describe('invalid enum value directive', () => {
           ${schemaModel}`,
       }),
     ).rejects.toThrow('Invalid @value directive for enum value Role.USER');
+  });
+
+  it('prints pending config warnings before failing', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await expect(
+        testGenerate({
+          options: ['outputFilePattern = ["invalid"]'],
+          schema: `
+            enum Role {
+              /// @value(foo)
+              USER
+            }
+            ${schemaModel}`,
+        }),
+      ).rejects.toThrow('Invalid @value directive');
+      expect(log).toHaveBeenCalledWith(
+        'prisma-nestjs-graphql:',
+        'outputFilePattern must be a non-empty string, got ["invalid"]; using default',
+      );
+    } finally {
+      log.mockRestore();
+    }
   });
 });
 

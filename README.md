@@ -842,15 +842,23 @@ OIDC token, then publishes the built artifact from a separate job in the `npm` e
 ### One-time npm setup
 
 Trusted publishing is configured on the settings page of an existing package,
-so the first version must be published manually:
+so a first placeholder version must be published manually from a clean checkout of `master`:
 
 ```sh
+pnpm install --frozen-lockfile
+pnpm run check
 pnpm run build
-jq '.version = "1.0.0"' dist/package.json > dist/package.tmp.json
+jq '.version = "0.0.1-bootstrap.0"' dist/package.json > dist/package.tmp.json
 mv dist/package.tmp.json dist/package.json
 npm login
-npm publish ./dist --access public
+# Provenance needs a CI identity, so it is disabled for this local publish only
+npm publish ./dist --access public --tag bootstrap --provenance=false
 ```
+
+The first real release (e.g. `v1.0.0`) is then published by the workflow with provenance
+and becomes `latest`; the placeholder version can be deprecated afterwards with
+`npm deprecate @quinnjr/prisma-nestjs-graphql@0.0.1-bootstrap.0 "Placeholder for trusted publishing setup"`.
+Every release tag must be higher than all versions already on npm.
 
 Then on npmjs.com open the package, **Settings** → **Trusted publishing** → **GitHub Actions** and enter:
 

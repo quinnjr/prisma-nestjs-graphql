@@ -164,6 +164,9 @@ async function createGeneratorOptions(
     generatorVersion,
     installedVersion('prisma'),
     installedVersion('@prisma/client'),
+    // Cached options depend on the proxy generator and the schema template here
+    fs.readFileSync(path.join(__dirname, 'proxy-generator.ts'), 'utf8'),
+    fs.readFileSync(__filename, 'utf8'),
     schemaHeader,
     schema,
     options,

@@ -14,6 +14,8 @@ First release of the fork as `@quinnjr/prisma-nestjs-graphql`.
   provider, e.g. `provider = "node node_modules/@quinnjr/prisma-nestjs-graphql"`.
 - Requires Node.js >= 22.12.
 - Enum value documentation lines that start like `@value(` but are malformed now fail generation.
+- Generation fails when two members of an enum have the same value (a custom `@value`,
+  or a member name used as the default value).
 - Fields of enums with custom member values are typed `keyof typeof Enum`.
 - `Bytes` fields follow the Prisma major version: `Buffer` for Prisma 5, `Uint8Array` for Prisma 6.
 - `Decimal` fields use `Prisma.Decimal` imported from the Prisma client import
@@ -25,3 +27,7 @@ First release of the fork as `@quinnjr/prisma-nestjs-graphql`.
 - `requireSingleFieldsInWhereUniqueInput` works again on Prisma 5 and later: it makes the
   single unique field of a `*WhereUniqueInput` required and non-null.
 - The package can be imported from native ESM (`exports` has a `default` condition).
+- A warning is emitted when the `@prisma/client` version cannot be detected
+  (Bytes fields then fall back to `Uint8Array`).
+- `Warning` events are emitted after `connectCallback`, so `generate()` library users
+  receive them; pending warnings are still printed when generation fails early.
