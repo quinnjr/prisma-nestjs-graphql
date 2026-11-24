@@ -1,5 +1,10 @@
-import { readFileSync } from 'graceful-fs';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'graceful-fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'graceful-fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -27,7 +32,7 @@ describe('getPrismaClientVersion', () => {
   };
 
   beforeAll(() => {
-    rootDirectory = mkdtempSync(join(tmpdir(), 'prisma-client-major-'));
+    rootDirectory = mkdtempSync(join(tmpdir(), 'prisma-client-version-'));
   });
 
   afterAll(() => {

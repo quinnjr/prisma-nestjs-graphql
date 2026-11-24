@@ -92,21 +92,33 @@ export async function generate(
     }
   };
 
-  const project = new Project({
-    manipulationSettings: {
-      quoteKind: QuoteKind.Single,
-    },
-    skipAddingFilesFromTsConfig: true,
-    skipLoadingLibFiles: !config.emitCompiled,
-    tsConfigFilePath: config.tsConfigFilePath,
-  });
+  // Steps that can throw before the warnings are emitted print them first
+  const withWarnings = <T>(step: () => T): T => {
+    try {
+      return step();
+    } catch (error) {
+      emitWarnings();
+      throw error;
+    }
+  };
 
-  if (!skipAddOutputSourceFiles) {
-    project.addSourceFilesAtPaths([
-      `${generatorOutputValue}/**/*.ts`,
-      `!${generatorOutputValue}/**/*.d.ts`,
-    ]);
-  }
+  const project = withWarnings(() => {
+    const result = new Project({
+      manipulationSettings: {
+        quoteKind: QuoteKind.Single,
+      },
+      skipAddingFilesFromTsConfig: true,
+      skipLoadingLibFiles: !config.emitCompiled,
+      tsConfigFilePath: config.tsConfigFilePath,
+    });
+    if (!skipAddOutputSourceFiles) {
+      result.addSourceFilesAtPaths([
+        `${generatorOutputValue}/**/*.ts`,
+        `!${generatorOutputValue}/**/*.d.ts`,
+      ]);
+    }
+    return result;
+  });
 
   if (config.combineScalarFilters) {
     combineScalarFilters(eventEmitter);
@@ -147,11 +159,9 @@ export async function generate(
       `${prismaClientVersion.reason}, assuming Prisma Client >= 6 (Bytes as Uint8Array)`,
     );
   }
-  let enumValueDocumentation: EventArguments['enumValueDocumentation'];
-  let customValueEnums: Set<string>;
-  try {
-    // Parsed once: registerEnum writes members from it, field types depend on it
-    enumValueDocumentation = Object.fromEntries(
+  // Parsed once: registerEnum writes members from it, field types depend on it
+  const enumValueDocumentation = withWarnings(() =>
+    Object.fromEntries(
       datamodel.enums.map(
         enumType =>
           [
@@ -159,21 +169,16 @@ export async function generate(
             extractEnumValueDocumentation(enumType.name, enumType.values),
           ] as const,
       ),
-    );
-    // Fields of enums with custom `@value(...)` member values are typed by member names
-    customValueEnums = new Set(
-      Object.entries(enumValueDocumentation)
-        .filter(([, documentation]) =>
-          Object.values(documentation ?? {}).some(
-            member => member?.value !== undefined,
-          ),
-        )
-        .map(([name]) => name),
-    );
-  } catch (error) {
-    emitWarnings();
-    throw error;
-  }
+    ),
+  );
+  // Fields of enums with custom `@value(...)` member values are typed by member names
+  const customValueEnums = new Set(
+    Object.entries(enumValueDocumentation)
+      .filter(([, documentation]) =>
+        Object.values(documentation).some(member => member?.value !== undefined),
+      )
+      .map(([name]) => name),
+  );
   const eventArguments: EventArguments = {
     bytesType: getBytesType(prismaClientVersion.major),
     classTransformerTypeModels: new Set(),

@@ -318,6 +318,50 @@ describe('invalid enum value directive', () => {
       log.mockRestore();
     }
   });
+
+  for (const [title, failure] of [
+    [
+      'when connectCallback throws',
+      {
+        expected: 'connect failed',
+        onConnect: () => {
+          throw new Error('connect failed');
+        },
+        options: [] as string[],
+      },
+    ],
+    [
+      'when the ts-morph project cannot be created',
+      {
+        expected: 'nonexistent-tsconfig.json',
+        onConnect: undefined,
+        options: ['tsConfigFilePath = "nonexistent-tsconfig.json"'],
+      },
+    ],
+  ] as const) {
+    it(`prints pending config warnings ${title}`, async () => {
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        await expect(
+          testGenerate({
+            onConnect: failure.onConnect,
+            options: ['outputFilePattern = ["invalid"]', ...failure.options],
+            schema: `
+              enum Role {
+                USER
+              }
+              ${schemaModel}`,
+          }),
+        ).rejects.toThrow(failure.expected);
+        expect(log).toHaveBeenCalledWith(
+          'prisma-nestjs-graphql:',
+          'outputFilePattern must be a non-empty string, got ["invalid"]; using default',
+        );
+      } finally {
+        log.mockRestore();
+      }
+    });
+  }
 });
 
 describe('extractEnumValueDocumentation', () => {
