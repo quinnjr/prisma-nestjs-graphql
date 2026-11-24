@@ -17,7 +17,7 @@ export class ProfileWhereInput {
   @Field(() => [ProfileWhereInput], { nullable: true })
   NOT?: Array<ProfileWhereInput>;
 
-  @Field(() => IntFilter, { nullable: true })
+  @Field(() => IntFilter, { deprecationReason: 'Use new name instead', nullable: true })
   id?: IntFilter;
 
   @Field(() => StringFilter, { nullable: true })

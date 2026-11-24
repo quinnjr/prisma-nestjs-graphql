@@ -1,12 +1,12 @@
-import { expect } from 'expect';
 import { Project } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { testSourceFile } from './helpers';
 import { testGenerate } from './test-generate';
 
 describe('decimal type', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -25,10 +25,10 @@ describe('decimal type', () => {
       project,
       property: 'money',
     });
-    expect(s.property?.type).toEqual('Decimal');
+    expect(s.property?.type).toEqual('Prisma.Decimal');
     expect(s.namedImports).toContainEqual({
-      name: 'Decimal',
-      specifier: '@prisma/client/runtime/library',
+      name: 'Prisma',
+      specifier: '@prisma/client',
     });
   });
 
@@ -38,10 +38,10 @@ describe('decimal type', () => {
       project,
       property: 'maybe',
     });
-    expect(s.property?.type).toEqual('Decimal | null');
+    expect(s.property?.type).toEqual('Prisma.Decimal | null');
     expect(s.namedImports).toContainEqual({
-      name: 'Decimal',
-      specifier: '@prisma/client/runtime/library',
+      name: 'Prisma',
+      specifier: '@prisma/client',
     });
   });
 
@@ -51,10 +51,10 @@ describe('decimal type', () => {
       project,
       property: 'money',
     });
-    expect(s.property?.type).toEqual('Decimal');
+    expect(s.property?.type).toEqual('Prisma.Decimal');
     expect(s.namedImports).toContainEqual({
-      name: 'Decimal',
-      specifier: '@prisma/client/runtime/library',
+      name: 'Prisma',
+      specifier: '@prisma/client',
     });
   });
 
@@ -64,11 +64,11 @@ describe('decimal type', () => {
       project,
       property: 'maybe',
     });
-    expect(s.property?.type).toEqual('Decimal');
+    expect(s.property?.type).toEqual('Prisma.Decimal');
     expect(s.property?.hasQuestionToken).toEqual(true);
     expect(s.namedImports).toContainEqual({
-      name: 'Decimal',
-      specifier: '@prisma/client/runtime/library',
+      name: 'Prisma',
+      specifier: '@prisma/client',
     });
   });
 
@@ -78,10 +78,10 @@ describe('decimal type', () => {
       project,
       property: 'money',
     });
-    expect(s.property?.type).toEqual('Decimal');
+    expect(s.property?.type).toEqual('Prisma.Decimal');
     expect(s.namedImports).toContainEqual({
-      name: 'Decimal',
-      specifier: '@prisma/client/runtime/library',
+      name: 'Prisma',
+      specifier: '@prisma/client',
     });
   });
 
@@ -91,18 +91,18 @@ describe('decimal type', () => {
       project,
       property: 'maybe',
     });
-    expect(s.property?.type).toEqual('Decimal');
+    expect(s.property?.type).toEqual('Prisma.Decimal');
     expect(s.property?.hasQuestionToken).toEqual(true);
     expect(s.namedImports).toContainEqual({
-      name: 'Decimal',
-      specifier: '@prisma/client/runtime/library',
+      name: 'Prisma',
+      specifier: '@prisma/client',
     });
   });
 });
 
 describe('decimal graphql', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       schema: `
         model User {
@@ -299,7 +299,7 @@ describe('decimal graphql', () => {
 
 describe('decimal graphql noAtomicOperations', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: `
         noAtomicOperations = true
@@ -334,13 +334,13 @@ describe('decimal graphql noAtomicOperations', () => {
       }),
     );
 
-    expect(s.property?.type).toEqual('Array<Decimal>');
+    expect(s.property?.type).toEqual('Array<Prisma.Decimal>');
   });
 });
 
 describe('nested object decorate', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: `
         noAtomicOperations = true
@@ -407,7 +407,6 @@ describe('nested object decorate', () => {
       'update',
       'updateMany',
       'deleteMany',
-      // eslint-disable-next-line unicorn/no-array-for-each
     ].forEach(property => {
       it(property, () => {
         const s = testSourceFile({

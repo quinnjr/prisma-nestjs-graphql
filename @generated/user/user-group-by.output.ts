@@ -3,7 +3,7 @@ import { ObjectType } from '@nestjs/graphql';
 import { HideField } from '@nestjs/graphql';
 import { Int } from '@nestjs/graphql';
 import { Float } from '@nestjs/graphql';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '@prisma/client';
 import { GraphQLDecimal } from 'prisma-graphql-type-decimal';
 import { Role } from '../prisma/role.enum';
 import { UserCountAggregate } from './user-count-aggregate.output';
@@ -39,10 +39,10 @@ export class UserGroupBy {
   rating?: number;
 
   @Field(() => GraphQLDecimal, { nullable: true })
-  money?: Decimal;
+  money?: Prisma.Decimal;
 
   @Field(() => Role, { nullable: true })
-  role?: `${Role}`;
+  role?: keyof typeof Role;
 
   @Field(() => UserCountAggregate, { nullable: true })
   _count?: UserCountAggregate;

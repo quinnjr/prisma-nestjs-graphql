@@ -1,4 +1,4 @@
-# prisma-nestjs-graphql
+# @quinnjr/prisma-nestjs-graphql
 
 Generate object types, inputs, args, etc. from prisma schema file for usage with @nestjs/graphql module.
 
@@ -10,8 +10,8 @@ Generate object types, inputs, args, etc. from prisma schema file for usage with
 
 ## Install
 
-```
-npm install --save-dev prisma-nestjs-graphql
+```sh
+pnpm add -D @quinnjr/prisma-nestjs-graphql
 ```
 
 ## Usage
@@ -20,8 +20,8 @@ npm install --save-dev prisma-nestjs-graphql
 
 ```prisma
 generator nestgraphql {
-    provider = "node node_modules/prisma-nestjs-graphql"
-    // for yarn monorepos
+    provider = "node node_modules/@quinnjr/prisma-nestjs-graphql"
+    // or the package binary, e.g. in monorepos
     // provider = "prisma-nestjs-graphql"
     output = "../src/@generated"
 }
@@ -30,14 +30,13 @@ generator nestgraphql {
 2. Run prisma generate
 
 ```sh
-npx prisma generate
+pnpm exec prisma generate
 ```
 
 3. If your models have `Decimal` and `Json` types, you need install:
 
 ```sh
-npm install graphql-type-json prisma-graphql-type-decimal
-
+pnpm add graphql-type-json prisma-graphql-type-decimal
 ```
 
 - [graphql-type-json](https://github.com/taion/graphql-type-json)
@@ -102,7 +101,7 @@ Example configuration:
 
 ```prisma
 generator nestgraphql {
-    provider = "node node_modules/prisma-nestjs-graphql"
+    provider = "node node_modules/@quinnjr/prisma-nestjs-graphql"
     output = "../src/@generated"
     reExport = Directories
 }
@@ -148,16 +147,16 @@ Default: `false`
 
 #### `requireSingleFieldsInWhereUniqueInput`
 
-When a model `*WhereUniqueInput` class has only a single field, mark that field as **required** (TypeScript) and **not nullable** (GraphQL).  
-See [#58](https://github.com/unlight/prisma-nestjs-graphql/issues/58) for more details.  
+When a model has exactly one unique field (an `@id`, an `@unique` field, or a single `@@id` / `@@unique` compound),
+mark that field as **required** (TypeScript) and **not nullable** (GraphQL) in its `*WhereUniqueInput` class.
+`AND`, `OR`, `NOT` and the other filter fields stay optional.  
 Type: `boolean`  
 Default: `false`  
-**Note**: It will break compatiblity between Prisma types and generated classes.
+**Note**: It changes the generated GraphQL schema: the unique field becomes non-null in the `*WhereUniqueInput` input type.
 
 #### `unsafeCompatibleWhereUniqueInput`
 
 Set TypeScript property type as non optional for all fields in `*WhereUniqueInput` classes.
-See [#177](https://github.com/unlight/prisma-nestjs-graphql/issues/177) for more details.  
 Type: `boolean`  
 Default: `false`
 
@@ -206,7 +205,7 @@ to set `UserWhereInput` need to configure generator the following way:
 
 ```prisma
 generator nestgraphql {
-  provider = "node node_modules/prisma-nestjs-graphql"
+  provider = "node node_modules/@quinnjr/prisma-nestjs-graphql"
   output = "../src/@generated"
   useInputType_WhereInput_ALL = "WhereInput"
 }
@@ -750,11 +749,130 @@ model User {
 export class User {}
 ```
 
+#### Enum values
+
+By default each member of a generated TypeScript enum gets its own name as value (`USER = "USER"`).
+A comment line `@value("text")` or `@value(number)` on an enum value sets a custom value instead.
+It can be combined with a description or `@deprecated` on other comment lines.
+
+```prisma
+enum Role {
+  /// @value("user")
+  USER
+  /// @value(2)
+  ADMIN
+  /// Can review articles
+  /// @value('reviewer')
+  REVIEWER
+  /// @deprecated Use USER instead
+  /// @value(10)
+  LEGACY
+  GUEST
+}
+```
+
+```ts
+export enum Role {
+  USER = 'user',
+  ADMIN = 2,
+  REVIEWER = 'reviewer',
+  LEGACY = 10,
+  GUEST = 'GUEST',
+}
+
+registerEnumType(Role, {
+  name: 'Role',
+  description: undefined,
+  valuesMap: {
+    REVIEWER: { description: 'Can review articles' },
+    LEGACY: { deprecationReason: 'Use USER instead' },
+  },
+});
+```
+
+Rules:
+
+- A comment line starting with `@value` must be exactly `@value(<literal>)`,
+  where the literal is a JSON5 string (single or double quotes) or a finite number.
+  Anything else (`@value(foo)`, `@value ("x")`, two `@value` lines) fails generation.
+- `@value` in the middle of a sentence, or a comment that is only a literal (`/// 2`),
+  stays a plain description.
+- GraphQL enum names are not affected, the schema still uses member names (`USER`, `ADMIN`).
+
+Prisma Client reads and writes enums by member name (`'USER'`), not by custom value.
+So fields of an enum with custom values are typed by member names (`keyof typeof Role`)
+and stay compatible with Prisma types, while enums without custom values keep `` `${Role}` ``.
+NestJS uses the enum values as GraphQL internal values: a resolver must return
+`Role.USER` (`'user'`) for the field to serialize as `USER`, and receives `'user'` for input `USER`.
+Map between member names and values when passing data between Prisma and GraphQL, for example
+`Role[prismaUser.role]` to get the value and
+`(Object.keys(Role) as (keyof typeof Role)[]).find(key => Role[key] === value)` to get the name.
+
 ### Using library in other generators
 
 ```ts
-import { generate } from 'prisma-nestjs-graphql/generate';
+import { generate } from '@quinnjr/prisma-nestjs-graphql/generate';
 ```
+
+## Development
+
+```sh
+pnpm install
+pnpm run check          # lint, format check, typecheck and tests
+pnpm run regen          # regenerate @generated from prisma/schema.prisma
+pnpm run compatibility  # regenerate with each generator option and typecheck the result
+pnpm run test:watch     # run tests in watch mode
+```
+
+## Releasing
+
+Releases are published to npm by the [publish workflow](.github/workflows/publish.yml)
+with npm trusted publishing (no npm token is stored).
+
+1. Create a GitHub release with a tag `vX.Y.Z` on a commit that is on `master`.
+   Write the release notes in the GitHub release.
+2. The package version comes from the tag; `version` in `package.json` stays `0.0.0-dev`.
+3. Prerelease tags such as `vX.Y.Z-rc.N` must be marked as **pre-release** on GitHub
+   and are published under the `next` dist-tag; other releases are published under `latest`.
+   The workflow fails if the tag and the pre-release flag disagree.
+
+The workflow runs the full CI suite, builds the package in a job without access to the
+OIDC token, then publishes the built artifact from a separate job in the `npm` environment.
+
+### One-time npm setup
+
+Trusted publishing is configured on the settings page of an existing package,
+so a first placeholder version must be published manually from a clean checkout of `master`:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm run build
+jq '.version = "0.0.1-bootstrap.0"' dist/package.json > dist/package.tmp.json
+mv dist/package.tmp.json dist/package.json
+npm login
+# Provenance needs a CI identity, so it is disabled for this local publish only
+npm publish ./dist --access public --tag bootstrap --provenance=false
+```
+
+The first real release (e.g. `v1.0.0`) is then published by the workflow with provenance
+and becomes `latest`; the placeholder version can be deprecated afterwards with
+`npm deprecate @quinnjr/prisma-nestjs-graphql@0.0.1-bootstrap.0 "Placeholder for trusted publishing setup"`.
+Every release tag must be higher than all versions already on npm.
+
+Then on npmjs.com open the package, **Settings** → **Trusted publishing** → **GitHub Actions** and enter:
+
+| Field             | Value                   |
+| ----------------- | ----------------------- |
+| Owner             | `quinnjr`               |
+| Repository        | `prisma-nestjs-graphql` |
+| Workflow filename | `publish.yml`           |
+| Environment       | `npm`                   |
+
+In the same settings set **Publishing access** to require two-factor authentication and disallow tokens.
+
+On GitHub, configure the `npm` environment (repository **Settings** → **Environments** → `npm`)
+with deployment tag rules that allow only `v*` tags.
 
 ## Similar Projects
 
@@ -771,22 +889,13 @@ import { generate } from 'prisma-nestjs-graphql/generate';
 
 ## Resources
 
-- Todo - <https://github.com/unlight/prisma-nestjs-graphql/issues/2>
 - <https://github.com/prisma/prisma/blob/main/packages/client/src/generation/TSClient/TSClient.ts>
 - <https://ts-ast-viewer.com/>
-- <https://github.com/unlight/nestjs-graphql-prisma-realworld-example-app>
 - <https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-model>
 - JSON type for the code first approach - <https://github.com/nestjs/graphql/issues/111#issuecomment-631452899>
 - <https://github.com/paljs/prisma-tools/tree/master/packages/plugins>
 - <https://github.com/wasp-lang/wasp>
 
-## TODO
-
-- keyof typeof SortOrder -> `SortOrder`
-- dummy-createfriends.input.ts -> `create-friends`
-- check 'TODO FIXME'
-- 22.12 node require esm (update all deps to latest)
-
 ## License
 
-[MIT License](https://opensource.org/licenses/MIT) (c) 2025
+[MIT License](LICENSE)

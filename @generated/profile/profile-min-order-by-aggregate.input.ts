@@ -4,7 +4,7 @@ import { SortOrder } from '../prisma/sort-order.enum';
 
 @InputType()
 export class ProfileMinOrderByAggregateInput {
-  @Field(() => SortOrder, { nullable: true })
+  @Field(() => SortOrder, { deprecationReason: 'Use new name instead', nullable: true })
   id?: `${SortOrder}`;
 
   @Field(() => SortOrder, { nullable: true })

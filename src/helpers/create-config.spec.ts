@@ -1,4 +1,4 @@
-import expect from 'expect';
+import { describe, expect, it } from 'vitest';
 
 import { ReExport } from '../handlers/re-export';
 import { createConfig } from './create-config';
@@ -27,6 +27,34 @@ describe('createConfig', () => {
     );
   });
 
+  it('outputFilePattern default when absent', () => {
+    const result = createConfig({});
+    expect(result.outputFilePattern).toEqual('{model}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([]);
+  });
+
+  it('outputFilePattern valid pattern round-trip', () => {
+    const result = createConfig({ outputFilePattern: '{type}/{name}.{type}.ts' });
+    expect(result.outputFilePattern).toEqual('{type}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([]);
+  });
+
+  it('outputFilePattern non-string value warns and uses default', () => {
+    const result = createConfig({ outputFilePattern: ['{name}.ts', '{type}.ts'] });
+    expect(result.outputFilePattern).toEqual('{model}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([
+      'outputFilePattern must be a non-empty string, got ["{name}.ts","{type}.ts"]; using default',
+    ]);
+  });
+
+  it('outputFilePattern empty string warns and uses default', () => {
+    const result = createConfig({ outputFilePattern: '' });
+    expect(result.outputFilePattern).toEqual('{model}/{name}.{type}.ts');
+    expect(result.$warnings).toEqual([
+      'outputFilePattern must be a non-empty string, got ""; using default',
+    ]);
+  });
+
   it('create config reExport', () => {
     const result = createConfig({ reExport: 'Single' });
     expect(result.reExport).toEqual(ReExport.Single);
@@ -39,26 +67,26 @@ describe('createConfig', () => {
     });
     expect(result.useInputType).toEqual([
       {
-        typeName: 'CreateInput',
         ALL: 'WhereInput',
         author: 'WhereInput',
+        typeName: 'CreateInput',
       },
     ]);
   });
 
   it('create config decorate from array', () => {
     const result = createConfig({
-      decorate_1_type: 'CreateOneUserArgs',
-      decorate_1_field: 'data',
-      decorate_1_name: 'ValidateNested',
-      decorate_1_from: 'class-validator',
       decorate_1_arguments: '[]',
-      decorate_2_type: 'CreateOneUserArgs',
+      decorate_1_field: 'data',
+      decorate_1_from: 'class-validator',
+      decorate_1_name: 'ValidateNested',
+      decorate_1_type: 'CreateOneUserArgs',
+      decorate_2_arguments: '[]',
       decorate_2_field: 'data',
       decorate_2_from: 'class-transformer',
-      decorate_2_arguments: '[]',
       decorate_2_name: 'Type',
       decorate_2_namedImport: true,
+      decorate_2_type: 'CreateOneUserArgs',
     });
     expect(result.decorate).toBeInstanceOf(Array);
     expect(result.decorate).toHaveLength(2);
@@ -66,17 +94,17 @@ describe('createConfig', () => {
 
   it('create config decorate from object', () => {
     const result = createConfig({
-      decorate_a_type: 'CreateOneUserArgs',
-      decorate_a_field: 'data',
-      decorate_a_name: 'ValidateNested',
-      decorate_a_from: 'class-validator',
       decorate_a_arguments: '[]',
-      decorate_b_type: 'CreateOneUserArgs',
+      decorate_a_field: 'data',
+      decorate_a_from: 'class-validator',
+      decorate_a_name: 'ValidateNested',
+      decorate_a_type: 'CreateOneUserArgs',
+      decorate_b_arguments: '[]',
       decorate_b_field: 'data',
       decorate_b_from: 'class-transformer',
-      decorate_b_arguments: '[]',
       decorate_b_name: 'Type',
       decorate_b_namedImport: true,
+      decorate_b_type: 'CreateOneUserArgs',
     });
     expect(result.decorate).toBeInstanceOf(Array);
     expect(result.decorate).toHaveLength(2);

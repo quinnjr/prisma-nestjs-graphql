@@ -4,5 +4,5 @@ import { InputType } from '@nestjs/graphql';
 @InputType()
 export class NullableBytesFieldUpdateOperationsInput {
   @Field(() => String, { nullable: true })
-  set?: Uint8Array;
+  set?: ReturnType<Uint8Array['slice']>;
 }

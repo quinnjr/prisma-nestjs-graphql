@@ -1,7 +1,7 @@
-import AwaitEventEmitter from 'await-event-emitter';
 import { partition } from 'lodash';
 import { PropertyDeclarationStructure } from 'ts-morph';
 
+import type { AwaitEventEmitter } from '../helpers/await-event-emitter';
 import { DMMF } from '../types';
 
 export function emitSingle(emitter: AwaitEventEmitter) {
@@ -16,7 +16,7 @@ function classProperty(
     propertyType: string[];
   },
 ) {
-  const { location, isList, propertyType } = eventArguments;
+  const { isList, location, propertyType } = eventArguments;
   if (['inputObjectTypes', 'outputObjectTypes'].includes(location) && !isList) {
     const [safeTypes, instanceofTypes] = partition(
       propertyType,

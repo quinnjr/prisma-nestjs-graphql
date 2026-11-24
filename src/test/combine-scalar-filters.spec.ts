@@ -1,6 +1,7 @@
-import expect from 'expect';
 import { Project, SourceFile } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
+import { EventArguments } from '../types';
 import { testSourceFile } from './helpers';
 import { testGenerate } from './test-generate';
 
@@ -8,7 +9,7 @@ let project: Project;
 let sourceFiles: SourceFile[];
 
 describe('combine scalar filters', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [
         `outputFilePattern = "{name}.{type}.ts"`,
@@ -215,7 +216,7 @@ describe('combine scalar filters', () => {
 });
 
 describe('combine scalar filters on array', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [
         `outputFilePattern = "{name}.{type}.ts"`,
@@ -237,7 +238,7 @@ describe('combine scalar filters on array', () => {
 });
 
 describe('empty relation filter input', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`combineScalarFilters = true`],
       schema: `
@@ -256,5 +257,32 @@ describe('empty relation filter input', () => {
 
   it('smoke', () => {
     'no errors';
+  });
+});
+
+describe('combine scalar filters without prisma input object types', () => {
+  it('should not throw when schema.inputObjectTypes.prisma is absent', async () => {
+    let inputTypesAtPostBegin: unknown = null;
+    await testGenerate({
+      onConnect(emitter) {
+        // 'Begin' runs before 'PostBegin', where combineScalarFilters reads the list
+        emitter.on('Begin', ({ schema }: EventArguments) => {
+          delete (schema.inputObjectTypes as Partial<typeof schema.inputObjectTypes>)
+            .prisma;
+        });
+        emitter.on('PostBegin', ({ schema }: EventArguments) => {
+          inputTypesAtPostBegin = schema.inputObjectTypes.prisma;
+        });
+      },
+      // Only models: input/args files would reference the deleted input types
+      options: [`combineScalarFilters = true`, `emitBlocks = ["models"]`],
+      schema: `
+        model User {
+          id   String  @id
+          name String?
+        }
+        `,
+    });
+    expect(inputTypesAtPostBegin).toBeUndefined();
   });
 });

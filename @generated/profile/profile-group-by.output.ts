@@ -9,7 +9,7 @@ import { ProfileMaxAggregate } from './profile-max-aggregate.output';
 
 @ObjectType()
 export class ProfileGroupBy {
-  @Field(() => Int, { nullable: false })
+  @Field(() => Int, { deprecationReason: 'Use new name instead', nullable: false })
   id!: number;
 
   @Field(() => String, { nullable: false })

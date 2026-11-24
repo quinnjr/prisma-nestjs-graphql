@@ -1,9 +1,9 @@
 import JSON5 from 'json5';
-import { isObject, merge, omit, trim } from 'lodash';
-import outmatch from 'outmatch';
+import { isObject, merge, omit } from 'lodash';
 import { PlainObject } from 'simplytyped';
 
 import { GeneratorConfiguration } from '../types';
+import { createSettingElement } from './create-setting-element';
 
 export type ObjectSetting = {
   /**
@@ -31,22 +31,22 @@ interface ObjectSettingsFilterArgs {
 
 export class ObjectSettings extends Array<ObjectSetting> {
   shouldHideField({
-    name,
     input = false,
+    name,
     output = false,
   }: ObjectSettingsFilterArgs): boolean {
     const hideField = this.find(s => s.name === 'HideField');
 
     return Boolean(
       (hideField?.input && input) ||
-        (hideField?.output && output) ||
-        hideField?.match?.(name),
+      (hideField?.output && output) ||
+      hideField?.match?.(name),
     );
   }
 
   getFieldType({
-    name,
     input,
+    name,
     output,
   }: ObjectSettingsFilterArgs): ObjectSetting | undefined {
     const fieldType = this.find(s => s.kind === 'FieldType');
@@ -56,7 +56,6 @@ export class ObjectSettings extends Array<ObjectSetting> {
     }
 
     if (fieldType.match) {
-      // eslint-disable-next-line unicorn/prefer-regexp-test
       return fieldType.match(name) ? fieldType : undefined;
     }
 
@@ -72,8 +71,8 @@ export class ObjectSettings extends Array<ObjectSetting> {
   }
 
   getPropertyType({
-    name,
     input,
+    name,
     output,
   }: ObjectSettingsFilterArgs): ObjectSetting | undefined {
     const propertyType = this.find(s => s.kind === 'PropertyType');
@@ -83,7 +82,6 @@ export class ObjectSettings extends Array<ObjectSetting> {
     }
 
     if (propertyType.match) {
-      // eslint-disable-next-line unicorn/prefer-regexp-test
       return propertyType.match(name) ? propertyType : undefined;
     }
 
@@ -98,12 +96,12 @@ export class ObjectSettings extends Array<ObjectSetting> {
     return propertyType;
   }
 
-  getObjectTypeArguments(options: Record<string, any>): string[] {
+  getObjectTypeArguments(options: Record<string, unknown>): string[] {
     const objectTypeOptions = merge({}, options);
-    const resultArguments: any[] = [objectTypeOptions];
+    const resultArguments: unknown[] = [objectTypeOptions];
     const objectType = this.find(s => s.kind === 'ObjectType');
     if (objectType && isObject(objectType.arguments)) {
-      const name = (objectType.arguments as PlainObject).name;
+      const name: unknown = (objectType.arguments as PlainObject).name;
       merge(objectTypeOptions, omit(objectType.arguments, 'name'));
       if (name) {
         resultArguments.unshift(name);
@@ -132,18 +130,18 @@ export function createObjectSettings(args: {
   let fieldElement = result.find(item => item.kind === 'Field');
   if (!fieldElement) {
     fieldElement = {
-      name: '',
-      kind: 'Field',
       arguments: {},
+      kind: 'Field',
+      name: '',
     } as ObjectSetting;
   }
 
   for (const line of textLines) {
     const match = /^@(?<name>\w+(\.(\w+))?)\((?<args>.*)\)/.exec(line);
-    const { element, documentLine } = createSettingElement({
-      line,
+    const { documentLine, element } = createSettingElement({
       config,
       fieldElement,
+      line,
       match,
     });
 
@@ -157,195 +155,7 @@ export function createObjectSettings(args: {
   }
 
   return {
-    settings: result,
     documentation: documentationLines.filter(Boolean).join('\n') || undefined,
+    settings: result,
   };
-}
-
-function createSettingElement({
-  line,
-  config,
-  fieldElement,
-  match,
-}: {
-  line: string;
-  config: GeneratorConfiguration;
-  fieldElement: ObjectSetting;
-  match: RegExpExecArray | null;
-}) {
-  const result = {
-    documentLine: '',
-    element: undefined as ObjectSetting | undefined,
-  };
-  if (line.startsWith('@deprecated')) {
-    fieldElement.arguments!['deprecationReason'] = trim(line.slice(11));
-
-    result.element = fieldElement;
-
-    return result;
-  }
-
-  if (line.startsWith('@complexity')) {
-    let n = Number.parseInt(trim(line.slice(11)));
-    if (n !== n || n < 1) n = 1;
-    fieldElement.arguments!['complexity'] = n;
-
-    result.element = fieldElement;
-
-    return result;
-  }
-
-  const name = match?.groups?.name;
-
-  if (!(match && name)) {
-    result.documentLine = line;
-    return result;
-  }
-
-  const element: ObjectSetting = {
-    kind: 'Decorator',
-    name: '',
-    arguments: [],
-    input: false,
-    output: false,
-    model: false,
-    from: '',
-  };
-
-  result.element = element;
-
-  if (name === 'TypeGraphQL.omit' || name === 'HideField') {
-    Object.assign(element, hideFieldDecorator(match));
-
-    return result;
-  }
-
-  if (['FieldType', 'PropertyType'].includes(name) && match.groups?.args) {
-    const options = customType(match.groups.args);
-    merge(element, options.namespace && config.fields[options.namespace], options, {
-      kind: name,
-    });
-    return result;
-  }
-
-  if (name === 'ObjectType' && match.groups?.args) {
-    element.kind = 'ObjectType';
-    const options = customType(match.groups.args) as Record<string, unknown>;
-    if (typeof options[0] === 'string' && options[0]) {
-      options.name = options[0];
-    }
-    if (isObject(options[1])) {
-      merge(options, options[1]);
-    }
-    element.arguments = {
-      name: options.name,
-      isAbstract: options.isAbstract,
-    };
-
-    return result;
-  }
-
-  if (name === 'Directive' && match.groups?.args) {
-    const options = customType(match.groups.args);
-    merge(element, { model: true, from: '@nestjs/graphql' }, options, {
-      name,
-      namespace: false,
-      kind: 'Decorator',
-      arguments: Array.isArray(options.arguments)
-        ? options.arguments.map(s => JSON5.stringify(s))
-        : options.arguments,
-    });
-
-    return result;
-  }
-
-  const namespace = getNamespace(name);
-  element.namespaceImport = namespace;
-  const options = {
-    name,
-    arguments: (match.groups?.args || '')
-      .split(',')
-      .map(s => trim(s))
-      .filter(Boolean),
-  };
-  merge(element, namespace && config.fields[namespace], options);
-
-  return result;
-}
-
-function customType(args: string) {
-  const result: Partial<ObjectSetting> = {};
-  let options = parseArgs(args);
-  if (typeof options === 'string') {
-    options = { name: options };
-  }
-  Object.assign(result, options);
-  const namespace = getNamespace(options.name);
-  result.namespace = namespace;
-  if ((options as { name: string | undefined }).name?.includes('.')) {
-    result.namespaceImport = namespace;
-  }
-
-  if (typeof options.match === 'string' || Array.isArray(options.match)) {
-    result.match = outmatch(options.match, { separator: false });
-  }
-
-  return result;
-}
-
-function hideFieldDecorator(match: RegExpExecArray) {
-  const result: Partial<ObjectSetting> = {
-    name: 'HideField',
-    arguments: [],
-    from: '@nestjs/graphql',
-    defaultImport: undefined,
-    namespaceImport: undefined,
-    match: undefined,
-  };
-  if (!match.groups?.args) {
-    result.output = true;
-    return result;
-  }
-
-  if (match.groups.args.includes('{') && match.groups.args.includes('}')) {
-    const options = parseArgs(match.groups.args) as Record<string, unknown>;
-    result.output = Boolean(options.output);
-    result.input = Boolean(options.input);
-    if (typeof options.match === 'string' || Array.isArray(options.match)) {
-      result.match = outmatch(options.match, { separator: false });
-    }
-  } else {
-    if (/output:\s*true/.test(match.groups.args)) {
-      result.output = true;
-    }
-    if (/input:\s*true/.test(match.groups.args)) {
-      result.input = true;
-    }
-  }
-
-  return result;
-}
-
-function parseArgs(string: string): Record<string, unknown> | string {
-  try {
-    return JSON5.parse(string);
-  } catch {
-    try {
-      return JSON5.parse(`[${string}]`);
-    } catch {
-      throw new Error(`Failed to parse: ${string}`);
-    }
-  }
-}
-
-function getNamespace(name: unknown): string | undefined {
-  if (name === undefined) {
-    return undefined;
-  }
-  let result = String(name);
-  if (result.includes('.')) {
-    [result] = result.split('.');
-  }
-  // eslint-disable-next-line consistent-return
-  return result;
 }

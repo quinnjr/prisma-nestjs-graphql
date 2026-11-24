@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 PATH="$PWD/node_modules/.bin":$PATH
 set -e
 
@@ -6,59 +6,85 @@ build() {
   set -x
   rm -rf dist
   mkdir dist
-  # https://esbuild.github.io/api/#target
   cp -fv src/bin.js dist
-  cp -fv README.md dist
-  npx pkgroll --target=es2020 --export-condition=node
-  cat package.json | jq '.main = "./index.cjs"' |
-    jq '.types = "./index.d.ts"' |
-    jq '.exports.".".require = "./index.cjs"' |
-    jq '.exports.".".types = "./index.d.ts"' |
-    jq '.typesVersions."*".generate = ["./generate.d.ts"]' |
-    jq '.exports."./generate".require = "./generate.cjs"' |
-    jq '.exports."./generate".types = "./generate.d.ts"' \
-      >dist/package.json
+  cp -fv README.md LICENSE dist
+  # https://esbuild.github.io/api/#target
+  pkgroll --target=es2020 --export-condition=node
+  jq '.main = "./index.cjs"
+    | .types = "./index.d.ts"
+    | .exports.".".types = "./index.d.ts"
+    | .exports.".".require = "./index.cjs"
+    | .exports.".".default = "./index.cjs"
+    | .typesVersions."*".generate = ["./generate.d.ts"]
+    | .exports."./generate".types = "./generate.d.ts"
+    | .exports."./generate".require = "./generate.cjs"
+    | .exports."./generate".default = "./generate.cjs"
+    | del(.devDependencies, .scripts, .packageManager)' package.json >dist/package.json
   set +x
 }
 
-compatibilty_check() {
+# Generate @generated from prisma/schema.prisma with each generator option
+# switched on and typecheck the result against Prisma Client types
+compatibility_check() {
+  schema=prisma/schema.prisma
+  # Global: the EXIT trap runs after this function returns
+  backup=$(mktemp)
+  cp "$schema" "$backup"
+  trap 'cp "$backup" "$schema"; rm -f "$backup"' EXIT
+  # dash does not run the EXIT trap on signals; exit explicitly so it does
+  trap 'exit 130' INT TERM
+
+  reset_schema() {
+    cp "$backup" "$schema"
+  }
+  set_option() {
+    if ! grep -Eq "^\s*$1\s*=" "$schema"; then
+      echo "Generator option '$1' not found in $schema" >&2
+      exit 1
+    fi
+    sed -i -E "s/^(\s*$1\s*=\s*).*/\1$2/" "$schema"
+  }
+  # Called as plain commands (never in && / || lists) so that set -e applies
+  regenerate() {
+    rm -rf ./@generated
+    prisma generate
+  }
+
   set -x
-  rm -rf ./@generated && npm run prisma:g && npm run tscheck
+  regenerate
+  tsc --noEmit
 
-  echo === Check noAtomicOperations ===
-  sed -i 's/noAtomicOperations *= false/noAtomicOperations = true/g' prisma/schema.prisma
-  rm -rf ./@generated && npm run prisma:g && npm run tscheck
-  sed -i 's/noAtomicOperations *= true/noAtomicOperations = false/g' prisma/schema.prisma
+  for option in noAtomicOperations combineScalarFilters requireSingleFieldsInWhereUniqueInput; do
+    echo "=== Check $option ==="
+    reset_schema
+    set_option "$option" true
+    regenerate
+    tsc --noEmit
+  done
 
-  echo === Check combineScalarFilters ===
-  sed -i 's/combineScalarFilters *= false/combineScalarFilters = true/g' prisma/schema.prisma
-  rm -rf ./@generated && npm run prisma:g && npm run tscheck
-  sed -i 's/combineScalarFilters *= true/combineScalarFilters = false/g' prisma/schema.prisma
+  echo "=== Check reExport ==="
+  reset_schema
+  set_option reExport All
+  regenerate
+  tsc --noEmit
 
-  echo === Switching reExport ===
-  sed -i 's/reExport *= None/reExport = All/g' prisma/schema.prisma
-  rm -rf ./@generated && npm run prisma:g && npm run tscheck
-  sed -i 's/reExport *= All/reExport = None/g' prisma/schema.prisma
+  echo "=== Check emitSingle ==="
+  reset_schema
+  set_option emitSingle true
+  regenerate
+  tsc --noEmit --skipLibCheck --experimentalDecorators ./@generated/index.ts
+  ts-node ./@generated/index.ts
 
-  echo === Check emitSingle ===
-  sed -i 's/emitSingle *= false/emitSingle = true/g' prisma/schema.prisma
-  rm -rf ./@generated && npm run prisma:g
-  npx tsc --noEmit --skipLibCheck --experimentalDecorators ./@generated/index.ts
-  npx ts-node ./@generated/index.ts
-
-  echo === Check emitCompiled ===
-  sed -i 's/emitCompiled *= false/emitCompiled = true/g' prisma/schema.prisma
-  rm -rf ./@generated && npm run prisma:g
+  echo "=== Check emitCompiled ==="
+  reset_schema
+  set_option emitSingle true
+  set_option emitCompiled true
+  regenerate
   node ./@generated/index.js
 
-  sed -i 's/emitCompiled *= true/emitCompiled = false/g' prisma/schema.prisma
-  sed -i 's/emitSingle *= true/emitSingle = false/g' prisma/schema.prisma
-
-  echo === Check requireSingleFieldsInWhereUniqueInput ===
-  sed -i 's/requireSingleFieldsInWhereUniqueInput *= false/requireSingleFieldsInWhereUniqueInput = true/g' prisma/schema.prisma
-  rm -rf ./@generated && npm run prisma:g && npm run tscheck
-  sed -i 's/requireSingleFieldsInWhereUniqueInput *= true/requireSingleFieldsInWhereUniqueInput = false/g' prisma/schema.prisma
-
+  reset_schema
+  regenerate
+  prettier --write ./@generated >/dev/null
   set +x
 }
 

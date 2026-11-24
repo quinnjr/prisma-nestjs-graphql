@@ -1,9 +1,11 @@
 import { ok } from 'assert';
 import {
   ClassDeclarationStructure,
+  Diagnostic,
   ImportSpecifierStructure,
   StatementStructures,
   StructureKind,
+  ts,
 } from 'ts-morph';
 
 import { ImportDeclarationMap } from '../helpers/import-declaration-map';
@@ -24,13 +26,15 @@ export async function generateFiles(args: EventArguments) {
       }
       const classDeclaration = s.getClass(() => true);
       const statements = s.getStructure().statements;
-      // Reget decorator full name
-      // TODO: Check possible bug of ts-morph
+      // ts-morph's DecoratorStructure.name comes from Decorator.getName(), which
+      // returns only the rightmost identifier of a property-access decorator
+      // (`@Validator.MinLength(3)` -> `MinLength`). Restore the qualified name
+      // via getFullName() so namespaced decorators survive being re-emitted.
       if (Array.isArray(statements)) {
         for (const statement of statements) {
-          if (
-            !(typeof statement === 'object' && statement.kind === StructureKind.Class)
-          ) {
+          if (!(
+            typeof statement === 'object' && statement.kind === StructureKind.Class
+          )) {
             continue;
           }
           for (const property of statement.properties || []) {
@@ -119,11 +123,28 @@ export async function generateFiles(args: EventArguments) {
       skipLibCheck: true,
     });
     const emitResult = await project.emit();
-    const errors = emitResult.getDiagnostics().map(d => String(d.getMessageText()));
-    if (errors.length > 0) {
-      eventEmitter.emitSync('Warning', errors);
+    const diagnostics = emitResult.getDiagnostics();
+    if (diagnostics.length > 0) {
+      eventEmitter.emitSync('Warning', diagnostics.map(formatDiagnostic));
     }
   } else {
     await project.save();
   }
+}
+
+export function formatDiagnostic(diagnostic: Diagnostic): string {
+  const message = ts.flattenDiagnosticMessageText(
+    diagnostic.compilerObject.messageText,
+    '\n',
+  );
+  const sourceFile = diagnostic.getSourceFile();
+  if (!sourceFile) {
+    return message;
+  }
+  const line = diagnostic.getLineNumber();
+  const location =
+    line === undefined
+      ? sourceFile.getFilePath()
+      : `${sourceFile.getFilePath()}:${String(line)}`;
+  return `${location}: ${message}`;
 }

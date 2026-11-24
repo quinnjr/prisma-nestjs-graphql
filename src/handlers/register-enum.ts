@@ -1,16 +1,18 @@
+import JSON5 from 'json5';
+import { omit } from 'lodash';
 import { EnumDeclarationStructure, StructureKind } from 'ts-morph';
 
 import { ImportDeclarationMap } from '../helpers/import-declaration-map';
 import { EventArguments, SchemaEnum } from '../types';
-import { extractEnumValueDocs } from './prisma-enum-doc';
 
 export function registerEnum(enumType: SchemaEnum, args: EventArguments) {
   const { config, enums, getSourceFile } = args;
 
-  if (!config.emitBlocks.prismaEnums && !enums[enumType.name]) return;
+  if (!config.emitBlocks.prismaEnums && !enums[enumType.name]) {
+    return;
+  }
 
   const dataModelEnum = enums[enumType.name];
-  const enumTypesData = dataModelEnum?.values || [];
   const sourceFile = getSourceFile({
     name: enumType.name,
     type: 'enum',
@@ -23,29 +25,31 @@ export function registerEnum(enumType: SchemaEnum, args: EventArguments) {
     namedImports: [{ name: 'registerEnumType' }],
   });
 
-  // Extract valuesMap from enum documentation
-  const valuesMap = extractEnumValueDocs(enumTypesData);
+  const valueDocumentation = args.enumValueDocumentation[enumType.name] ?? {};
 
-  // Remove entries with no description or deprecationReason
-  const filteredValuesMap = Object.fromEntries(
-    Object.entries(valuesMap).filter(([_, v]) => Object.keys(v).length > 0),
+  // GraphQL metadata only (description, deprecationReason), without TypeScript `value`
+  const graphqlValuesMap = Object.fromEntries(
+    Object.entries(valueDocumentation)
+      .map(([key, info]) => [key, omit(info, 'value')] as const)
+      .filter(([, v]) => Object.keys(v).length > 0),
   );
 
-  // Format only if needed
-  const hasValuesMap = Object.keys(filteredValuesMap).length > 0;
-  const formattedValuesMap = hasValuesMap
-    ? JSON.stringify(filteredValuesMap, null, 2).replace(/"([^"]+)":/g, '$1:')
-    : '';
-  const valuesMapEntry = hasValuesMap ? `, valuesMap: ${formattedValuesMap}` : '';
+  // JSON5 writes identifier keys unquoted and escapes string values,
+  // so comment text cannot break out of the string literal
+  const valuesMapEntry =
+    Object.keys(graphqlValuesMap).length > 0
+      ? `, valuesMap: ${JSON5.stringify(graphqlValuesMap, { quote: '"', space: 2 })}`
+      : '';
 
   const enumStructure: EnumDeclarationStructure = {
-    kind: StructureKind.Enum,
     isExported: true,
-    name: enumType.name,
+    kind: StructureKind.Enum,
+    // `@value(...)` from comment overrides default `KEY = "KEY"`
     members: enumType.values.map(v => ({
+      initializer: JSON.stringify(valueDocumentation[v]?.value ?? v),
       name: v,
-      initializer: JSON.stringify(v),
     })),
+    name: enumType.name,
   };
 
   sourceFile.set({

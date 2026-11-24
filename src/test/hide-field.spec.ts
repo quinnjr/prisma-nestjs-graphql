@@ -1,5 +1,5 @@
-import expect from 'expect';
 import { Project, SourceFile } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { testSourceFile } from './helpers';
 import { testGenerate } from './test-generate';
@@ -9,7 +9,7 @@ let imports: { name: string; specifier: string }[];
 let s: ReturnType<typeof testSourceFile>;
 
 describe('scalar field', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [],
       schema: `
@@ -69,7 +69,7 @@ describe('scalar field', () => {
 });
 
 describe('hide on non scalar', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [],
       schema: `
@@ -102,7 +102,7 @@ describe('hide on non scalar', () => {
 });
 
 describe('hide field using match', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -215,7 +215,7 @@ it('hidden relations result in un-imported types', async () => {
 });
 
 describe('enums are not imported in classes when decorated', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -258,72 +258,8 @@ describe('enums are not imported in classes when decorated', () => {
   }
 });
 
-describe.skip('hide enum', () => {
-  // not implemented
-  before(async () => {
-    ({ project } = await testGenerate({
-      options: [`outputFilePattern = "{name}.{type}.ts"`],
-      schema: `
-        model User {
-          id Int @id
-          /// @HideField({ input: true, output: true, model: true })
-          role Role
-        }
-        enum Role {
-          USER
-          ADMIN
-        }
-        `,
-    }));
-  });
-
-  it('should not call registerEnumType', () => {
-    const s = testSourceFile({
-      file: 'role.enum.ts',
-      project,
-    });
-
-    expect(s.namedImports).not.toContainEqual({
-      name: 'registerEnumType',
-      specifier: '@nestjs/graphql',
-    });
-  });
-
-  it('check usage in files', () => {
-    const files = [
-      // 'user-group-by.output.ts',
-      // 'user-max-aggregate.output.ts',
-      // 'user-min-aggregate.output.ts',
-      // 'user-create.input.ts',
-      // 'user-update-many-mutation.input.ts',
-      // 'user-create-many.input.ts',
-      // 'user.model.ts',
-      // 'user-where.input.ts',
-      'enum-role-filter.input.ts',
-    ];
-
-    for (const file of files) {
-      const s = testSourceFile({
-        file,
-        project,
-        property: 'role',
-      });
-
-      console.log('s', s);
-
-      expect(s.namedImports).toContainEqual({
-        name: 'Role',
-        specifier: './role.enum',
-      });
-      expect(s.propertyDecorators).toContainEqual(
-        expect.objectContaining({ name: 'HideField' }),
-      );
-    }
-  });
-});
-
 describe('hide with self reference', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       schema: `model User {
                   id     Int    @id
@@ -356,7 +292,7 @@ describe('hide with self reference', () => {
 });
 
 describe('hide _count', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: `
   outputFilePattern = "{name}.{type}.ts"

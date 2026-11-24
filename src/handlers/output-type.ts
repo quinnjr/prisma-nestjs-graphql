@@ -28,8 +28,9 @@ export function outputType(outputType: OutputType, args: EventArguments) {
   const isCountOutput =
     model?.name && outputType.name === `${model.name}CountOutputType`;
 
-  if (!config.emitBlocks.outputs && !isCountOutput) return;
-
+  if (!config.emitBlocks.outputs && !isCountOutput) {
+    return;
+  }
   // Get rid of bogus suffixes
   outputType.name = getOutputTypeName(outputType.name);
 
@@ -77,6 +78,8 @@ export function outputType(outputType: OutputType, args: EventArguments) {
     const propertyType = castArray(
       propertySettings?.name ||
         getPropertyType({
+          bytesType: args.bytesType,
+          customValueEnums: args.customValueEnums,
           location,
           type: outputTypeName,
         }),
@@ -94,8 +97,8 @@ export function outputType(outputType: OutputType, args: EventArguments) {
 
     if (propertySettings) {
       importDeclarations.create({ ...propertySettings });
-    } else if (propertyType.includes('Decimal')) {
-      importDeclarations.add('Decimal', `${config.prismaClientImport}/runtime/library`);
+    } else if (propertyType.some(p => p.startsWith('Prisma.'))) {
+      importDeclarations.add('Prisma', config.prismaClientImport);
     }
 
     // Get graphql type

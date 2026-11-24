@@ -1,4 +1,3 @@
-import expect from 'expect';
 import JSON5 from 'json5';
 import { trim } from 'lodash';
 import {
@@ -10,6 +9,7 @@ import {
   PropertyDeclarationStructure,
   SourceFile,
 } from 'ts-morph';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { EventArguments } from '../types';
 import { getFieldOptions, getPropertyStructure, testSourceFile } from './helpers';
@@ -47,7 +47,7 @@ const objectTypeArguments = () =>
     ?.getStructure().arguments;
 
 describe('model with one id int', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       schema: `
             /// User really
@@ -60,7 +60,7 @@ describe('model with one id int', () => {
 
   describe('model', () => {
     let s: ReturnType<typeof testSourceFile>;
-    before(() => {
+    beforeAll(() => {
       s = testSourceFile({ file: 'user.model.ts', project });
     });
 
@@ -233,7 +233,7 @@ describe('model with one id int', () => {
   });
 
   describe('aggregate user args', () => {
-    before(() => {
+    beforeAll(() => {
       setSourceFile('user-aggregate.args.ts');
       classFile = sourceFile.getClass(() => true)!;
     });
@@ -274,7 +274,7 @@ describe('model with one id int', () => {
 
   describe('user count aggregate input', () => {
     let id: PropertyDeclarationStructure;
-    before(() => {
+    beforeAll(() => {
       setSourceFile('user-count-aggregate.input.ts');
       id = getPropertyStructure(sourceFile, 'id')!;
     });
@@ -386,7 +386,7 @@ describe('duplicated', () => {
 });
 
 describe('one model with scalar types', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       schema: `model User {
                 id String @id
@@ -403,7 +403,7 @@ describe('one model with scalar types', () => {
   });
 
   describe('user model', () => {
-    before(() => {
+    beforeAll(() => {
       setSourceFile('user.model.ts');
     });
     describe('property types', () => {
@@ -428,7 +428,7 @@ describe('one model with scalar types', () => {
       });
 
       it('money', () => {
-        expect(p('money')?.type).toEqual('Decimal');
+        expect(p('money')?.type).toEqual('Prisma.Decimal');
       });
     });
 
@@ -447,7 +447,7 @@ describe('one model with scalar types', () => {
   });
 
   describe('datetime filter', () => {
-    before(() => {
+    beforeAll(() => {
       sourceFile = project.getSourceFile(s =>
         s.getFilePath().endsWith('/date-time-filter.input.ts'),
       )!;
@@ -475,7 +475,7 @@ describe('one model with scalar types', () => {
   });
 
   describe('user where input', () => {
-    before(() => {
+    beforeAll(() => {
       setSourceFile('user-where.input.ts');
     });
 
@@ -502,7 +502,7 @@ describe('one model with scalar types', () => {
   });
 
   describe('string filter input', () => {
-    before(() => {
+    beforeAll(() => {
       sourceFile = project.getSourceFile(s =>
         s.getFilePath().endsWith('/string-filter.input.ts'),
       )!;
@@ -528,7 +528,7 @@ describe('one model with scalar types', () => {
   });
 
   describe('user create input', () => {
-    before(() => {
+    beforeAll(() => {
       setSourceFile('/user-create.input.ts');
     });
 
@@ -567,7 +567,7 @@ describe('one model with scalar types', () => {
   });
 
   describe('json filter', () => {
-    before(() => {
+    beforeAll(() => {
       sourceFile = project.getSourceFile(s =>
         s.getFilePath().endsWith('/json-filter.input.ts'),
       )!;
@@ -585,7 +585,7 @@ describe('one model with scalar types', () => {
 });
 
 describe('model with scalar nullable types', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `model User {
@@ -609,7 +609,7 @@ describe('model with scalar nullable types', () => {
 
 describe('scalar list type', () => {
   describe('general', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         schema: `
             model User {
@@ -632,7 +632,7 @@ describe('scalar list type', () => {
 });
 
 describe('nullish compatibility', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -688,7 +688,7 @@ describe('nullish compatibility', () => {
 
   it('money', () => {
     const s = testSourceFile({ file: 'user.model.ts', project, property: 'money' });
-    expect(s.property?.type).toEqual('Decimal | null');
+    expect(s.property?.type).toEqual('Prisma.Decimal | null');
     expect(s.property?.hasQuestionToken).toBe(false);
     expect(imports).toContainEqual({
       name: 'GraphQLDecimal',
@@ -727,7 +727,7 @@ describe('nullish compatibility', () => {
 });
 
 describe('one model with enum', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       schema: `
             /// Role really
@@ -783,7 +783,7 @@ describe('one model with enum', () => {
   });
 
   describe('role enum', () => {
-    before(() => {
+    beforeAll(() => {
       setSourceFile('role.enum.ts');
     });
 
@@ -798,7 +798,7 @@ describe('one model with enum', () => {
   });
 
   describe('model', () => {
-    before(() => {
+    beforeAll(() => {
       setSourceFile('user.model.ts');
     });
 
@@ -817,7 +817,7 @@ describe('one model with enum', () => {
 });
 
 describe('one model with self reference', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       schema: `model User {
                   id     Int    @id
@@ -859,7 +859,7 @@ describe('one model with self reference', () => {
   });
 
   describe('user list relation filter', () => {
-    before(() => {
+    beforeAll(() => {
       sourceFile = project.getSourceFile(s =>
         s.getFilePath().endsWith('/user-list-relation-filter.input.ts'),
       )!;
@@ -883,7 +883,7 @@ describe('one model with self reference', () => {
 });
 
 describe('two models with id only and relation', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       schema: `
                 model User {
@@ -901,7 +901,7 @@ describe('two models with id only and relation', () => {
   });
 
   describe('user model', () => {
-    before(() => {
+    beforeAll(() => {
       sourceFile = project.getSourceFile(s =>
         s.getFilePath().endsWith('/user.model.ts'),
       )!;
@@ -1023,8 +1023,8 @@ it('generator option outputFilePattern', async () => {
   expect(filePaths).toContainEqual(expect.stringContaining('/data/model/user.ts'));
 });
 
-it('several models', () => {
-  before(async () => {
+describe('several models', () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       schema: `model User {
               id        Int      @id
@@ -1035,9 +1035,13 @@ it('several models', () => {
             model Profile {
                 id        Int      @id
                 sex       Boolean?
+                user      User     @relation(fields: [userId], references: [id])
+                userId    Int      @unique
             }
             model Comment {
                 id        Int      @id
+                user      User     @relation(fields: [userId], references: [id])
+                userId    Int
             }`,
     }));
   });
@@ -1047,14 +1051,14 @@ it('several models', () => {
       .flatMap(s => s.getClasses())
       .flatMap(d => d.getProperties())
       .flatMap(p => p.getDecorators())) {
-      const argument = d.getCallExpression()?.getArguments()?.[0].getText();
+      const argument = d.getCallExpression()?.getArguments()[0].getText();
       expect(argument).not.toContain('null');
     }
   });
 });
 
 describe('get rid of atomic number operations', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [
         `
@@ -1083,19 +1087,17 @@ describe('get rid of atomic number operations', () => {
   });
 
   describe('user update input', () => {
-    before(() => {
+    beforeAll(() => {
       setSourceFile('user-update.input.ts');
     });
 
     it('id should be regular string', () => {
-      it('rating should be regular string', () => {
-        const s = testSourceFile({
-          class: 'UserUpdateInput',
-          project,
-          property: 'id',
-        });
-        expect(s.property?.type).toEqual('string');
+      const s = testSourceFile({
+        class: 'UserUpdateInput',
+        project,
+        property: 'id',
       });
+      expect(s.property?.type).toEqual('string');
     });
 
     it('id field type should be string', () => {
@@ -1108,14 +1110,12 @@ describe('get rid of atomic number operations', () => {
     });
 
     it('age should be regular string', () => {
-      it('rating should be regular string', () => {
-        const s = testSourceFile({
-          class: 'UserUpdateInput',
-          project,
-          property: 'age',
-        });
-        expect(s.property?.type).toEqual('number');
+      const s = testSourceFile({
+        class: 'UserUpdateInput',
+        project,
+        property: 'age',
       });
+      expect(s.property?.type).toEqual('number');
     });
 
     it('age field type should be string', () => {
@@ -1170,7 +1170,7 @@ describe('get rid of atomic number operations', () => {
 });
 
 describe('noAtomicOperations with emitSingle and combineScalarFilters', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [
         `outputFilePattern = "{name}.{type}.ts"`,
@@ -1200,7 +1200,7 @@ describe('noAtomicOperations with emitSingle and combineScalarFilters', () => {
 
 describe('scalar arrays with noAtomicOperations', () => {
   let project: Project;
-  before(async () => {
+  beforeAll(async () => {
     ({ project } = await testGenerate({
       options: [
         `
@@ -1274,7 +1274,7 @@ it('model with prisma keyword output', async () => {
 
 describe('reexport option', () => {
   describe('reexport directories clean', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: ['reExport = Directories'],
         schema: `
@@ -1295,7 +1295,7 @@ describe('reexport option', () => {
   });
 
   describe('reexport directories with existing file', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         onConnect(emitter) {
           emitter.on('PostBegin', ({ output, project }: EventArguments) => {
@@ -1329,7 +1329,7 @@ describe('reexport option', () => {
   });
 
   describe('reexport directories with output file pattern', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [
           'reExport = Directories',
@@ -1360,7 +1360,7 @@ describe('reexport option', () => {
   });
 
   describe('reexport single', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: ['reExport = Single'],
         schema: `
@@ -1384,7 +1384,7 @@ describe('reexport option', () => {
   });
 
   describe('reexport all', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: ['reExport = All'],
         schema: `
@@ -1421,7 +1421,7 @@ describe('reexport option', () => {
 });
 
 describe('emit single and decorators', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [
         `emitSingle = true`,
@@ -1463,7 +1463,7 @@ describe('emit single and decorators', () => {
 
   describe('user create input name', () => {
     let property: PropertyDeclaration;
-    before(() => {
+    beforeAll(() => {
       property = sourceFile.getClass('UserCreateInput')?.getProperty('name')!;
     });
 
@@ -1487,7 +1487,7 @@ describe('emit single', () => {
         }
     `;
   describe('emit single green', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [`emitSingle = true`, `outputFilePattern = "{name}.{type}.ts"`],
         schema,
@@ -1532,7 +1532,7 @@ describe('emit single', () => {
       expect(types).toHaveLength(0);
     });
 
-    it('type started with Prisma should not be wrapped to instanceof', async () => {
+    it('type started with Prisma should not be wrapped to instanceof', () => {
       const types = sourceFile
         .getClasses()
         .flatMap(c => c.getProperties().map(p => ({ c, p })))
@@ -1553,7 +1553,7 @@ describe('emit single', () => {
   });
 
   describe('emit single second gen', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         onConnect(emitter) {
           emitter.on('PostBegin', ({ output, project }: EventArguments) => {
@@ -1624,7 +1624,7 @@ describe('select input type', () => {
   });
 
   describe('select input type articlewhereinput array config', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [
           `outputFilePattern = "{name}.{type}.ts"`,
@@ -1664,7 +1664,7 @@ describe('select input type', () => {
   });
 
   describe('select input type no atomic operations', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [
           `outputFilePattern = "{name}.{type}.ts"`,
@@ -1741,7 +1741,7 @@ describe('select input type', () => {
 });
 
 describe('model autoincrement int', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       schema: `
                 model User {
@@ -1769,7 +1769,7 @@ describe('model autoincrement int', () => {
 });
 
 describe('output without fields', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -1795,7 +1795,7 @@ describe('output without fields', () => {
 
 describe('noTypeId config', () => {
   describe('disabled', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [`outputFilePattern = "{name}.{type}.ts"`],
         schema: `
@@ -1820,7 +1820,7 @@ describe('noTypeId config', () => {
   });
 
   describe('enabled int', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [`outputFilePattern = "{name}.{type}.ts"`, 'noTypeId = true'],
         schema: `
@@ -1858,7 +1858,7 @@ describe('object model options', () => {
 
     const s = testSourceFile({ class: 'User', project });
     const argument = s.classFile.getDecorator('ObjectType')?.getStructure()
-      .arguments?.[0];
+      .arguments?.[0] as string;
     const json = JSON5.parse(argument);
 
     expect(json).toEqual({ isAbstract: true });
@@ -1907,7 +1907,7 @@ describe('object model options', () => {
 
 describe('field type', () => {
   describe('it overwrites field type based on match expression', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [`outputFilePattern = "{name}.{type}.ts"`],
         schema: `
@@ -1965,7 +1965,7 @@ it('fieldtype on groupby', async () => {
 
 describe('property type', () => {
   describe('it overwrites property type based on match expression', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [`outputFilePattern = "{name}.{type}.ts"`],
         schema: `
@@ -2005,7 +2005,7 @@ describe('property type', () => {
   });
 
   describe('it respects input from generator level field configuration', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [
           `
@@ -2037,7 +2037,7 @@ describe('property type', () => {
   });
 
   describe('it respects output from generator level field configuration', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [
           `
@@ -2070,7 +2070,7 @@ describe('property type', () => {
 });
 
 describe('hidefield on groupby output', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -2104,7 +2104,7 @@ describe('hidefield on groupby output', () => {
 });
 
 describe('non list optional properties should be nullable', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -2192,23 +2192,7 @@ describe('requireSingleFieldsInWhereUniqueInput', () => {
     expect(f('email')).toEqual(['() => String', '{nullable:true}']);
   });
 
-  it.skip('requireSingleFieldsInWhereUniqueInput single fields', async () => {
-    /* generates, looks like it's not actual
-export class UserWhereUniqueInput {
-
-    @Field(() => String, {nullable:true})
-    id?: string;
-
-    @Field(() => [UserWhereInput], {nullable:true})
-    AND?: Array<UserWhereInput>;
-
-    @Field(() => [UserWhereInput], {nullable:true})
-    OR?: Array<UserWhereInput>;
-
-    @Field(() => [UserWhereInput], {nullable:true})
-    NOT?: Array<UserWhereInput>;
-}
-     */
+  it('requireSingleFieldsInWhereUniqueInput single fields', async () => {
     ({ project } = await testGenerate({
       options: [
         `outputFilePattern = "{name}.{type}.ts"`,
@@ -2217,6 +2201,7 @@ export class UserWhereUniqueInput {
       schema: `
                 model User {
                     id String @id
+                    name String
                 }
         `,
     }));
@@ -2232,9 +2217,20 @@ export class UserWhereUniqueInput {
 
     expect(s.fieldDecoratorType).toEqual('() => String');
     expect(s.fieldDecoratorOptions).toEqual('{nullable:false}');
+
+    // Only the unique field is required, filters stay optional
+    for (const property of ['AND', 'OR', 'NOT', 'name']) {
+      const optional = testSourceFile({
+        file: 'user-where-unique.input.ts',
+        project,
+        property,
+      });
+      expect(optional.property?.hasQuestionToken, property).toEqual(true);
+      expect(optional.fieldDecoratorOptions, property).toEqual('{nullable:true}');
+    }
   });
 
-  it.skip('requireSingleFieldsInWhereUniqueInput compound', async () => {
+  it('requireSingleFieldsInWhereUniqueInput compound', async () => {
     ({ project } = await testGenerate({
       options: [
         `outputFilePattern = "{name}.{type}.ts"`,
@@ -2260,12 +2256,45 @@ export class UserWhereUniqueInput {
     expect(s.property?.type).toEqual('UserNameEmailCompoundUniqueInput');
     expect(s.fieldDecoratorType).toEqual('() => UserNameEmailCompoundUniqueInput');
     expect(s.fieldDecoratorOptions).toEqual('{nullable:false}');
+
+    for (const property of ['AND', 'name', 'email']) {
+      const optional = testSourceFile({
+        file: 'user-where-unique.input.ts',
+        project,
+        property,
+      });
+      expect(optional.property?.hasQuestionToken, property).toEqual(true);
+    }
+  });
+
+  it('requireSingleFieldsInWhereUniqueInput ignores several unique fields', async () => {
+    ({ project } = await testGenerate({
+      options: [
+        `outputFilePattern = "{name}.{type}.ts"`,
+        `requireSingleFieldsInWhereUniqueInput = true`,
+      ],
+      schema: `
+                model User {
+                  id    String @id
+                  email String @unique
+                }
+            `,
+    }));
+
+    for (const property of ['id', 'email']) {
+      const s = testSourceFile({
+        file: 'user-where-unique.input.ts',
+        project,
+        property,
+      });
+      expect(s.property?.hasQuestionToken, property).toEqual(true);
+    }
   });
 });
 
 describe('configuration custom scalars', () => {
   describe('bigint', () => {
-    before(async () => {
+    beforeAll(async () => {
       ({ project, sourceFiles } = await testGenerate({
         options: [
           `outputFilePattern = "{name}.{type}.ts"`,
@@ -2336,7 +2365,7 @@ describe('configuration custom scalars', () => {
 });
 
 describe('multiple description', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -2370,8 +2399,40 @@ describe('multiple description', () => {
   });
 });
 
+describe('complexity', () => {
+  beforeAll(async () => {
+    ({ project } = await testGenerate({
+      options: [`outputFilePattern = "{name}.{type}.ts"`],
+      schema: `
+        model User {
+          id Int @id
+          /// @complexity 5
+          five String
+          /// @complexity 0
+          zero String
+          /// @complexity abc
+          invalid String
+        }`,
+    }));
+  });
+
+  for (const [property, complexity] of [
+    ['five', 5],
+    ['zero', 1],
+    ['invalid', 1],
+  ] as const) {
+    it(`${property} complexity is ${String(complexity)}`, () => {
+      const s = testSourceFile({ class: 'User', project, property });
+
+      expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
+        expect.objectContaining({ complexity }),
+      );
+    });
+  }
+});
+
 describe('deprecation reason', () => {
-  before(async () => {
+  beforeAll(async () => {
     ({ project, sourceFiles } = await testGenerate({
       options: [`outputFilePattern = "{name}.{type}.ts"`],
       schema: `
@@ -2384,10 +2445,10 @@ describe('deprecation reason', () => {
     }));
   });
 
-  it('deprecation reason default', async () => {
+  it('deprecation reason default', () => {
     const s = testSourceFile({ class: 'User', project, property: 'name' });
 
-    expect(JSON5.parse(s.fieldDecoratorOptions)).toEqual(
+    expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
       expect.objectContaining({
         deprecationReason: 'Use name2 instead',
         description: 'Name description',
@@ -2407,7 +2468,7 @@ describe('deprecation reason', () => {
         project,
         property: 'name',
       });
-      expect(JSON5.parse(s.fieldDecoratorOptions)).toEqual(
+      expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
         expect.objectContaining({ deprecationReason: 'Use name2 instead' }),
       );
     });
@@ -2419,7 +2480,7 @@ describe('deprecation reason', () => {
     expect(jsdoc).toContain('* Name description');
     expect(jsdoc).toContain('* @deprecated Use name2 instead');
 
-    expect(JSON5.parse(s.fieldDecoratorOptions)).toEqual(
+    expect(JSON5.parse(s.fieldDecoratorOptions ?? '')).toEqual(
       expect.objectContaining({
         deprecationReason: 'Use name2 instead',
         description: 'Name description',

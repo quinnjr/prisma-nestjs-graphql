@@ -18,9 +18,13 @@ import { ReExport, reExport } from './handlers/re-export';
 import { registerEnum } from './handlers/register-enum';
 import { requireSingleFieldsInWhereUniqueInput } from './handlers/require-single-fields-in-whereunique-input';
 import { warning } from './handlers/warning';
+import { AwaitEventEmitter } from './helpers/await-event-emitter';
 import { createConfig } from './helpers/create-config';
+import { extractEnumValueDocumentation } from './helpers/enum-value-documentation';
 import { factoryGetSourceFile } from './helpers/factory-get-source-file';
+import { getBytesType } from './helpers/get-bytes-type';
 import { createGetModelName } from './helpers/get-model-name';
+import { getPrismaClientVersion } from './helpers/prisma-client-version';
 import {
   Document,
   EventArguments,
@@ -29,15 +33,12 @@ import {
   ObjectSettings,
   OutputType,
 } from './types';
-const AwaitEventEmitter = require('await-event-emitter').default;
-
-import AEE from 'await-event-emitter';
 
 export async function generate(
   args: GeneratorOptions & {
     skipAddOutputSourceFiles?: boolean;
     connectCallback?: (
-      emitter: AEE,
+      emitter: AwaitEventEmitter,
       eventArguments: EventArguments,
     ) => void | Promise<void>;
   },
@@ -51,7 +52,9 @@ export async function generate(
 
   const eventEmitter = new AwaitEventEmitter();
   eventEmitter.on('Warning', warning);
-  config.emitBlocks.models && eventEmitter.on('Model', modelData);
+  if (config.emitBlocks.models) {
+    eventEmitter.on('Model', modelData);
+  }
   if (config.emitBlocks.prismaEnums || config.emitBlocks.schemaEnums) {
     eventEmitter.on('EnumType', registerEnum);
   }
@@ -61,39 +64,80 @@ export async function generate(
   ) {
     eventEmitter.on('OutputType', outputType);
   }
-  config.emitBlocks.models && eventEmitter.on('ModelOutputType', modelOutputType);
-  config.emitBlocks.outputs && eventEmitter.on('AggregateOutput', createAggregateInput);
-  config.emitBlocks.inputs && eventEmitter.on('InputType', inputType);
-  config.emitBlocks.args && eventEmitter.on('ArgsType', argsType);
+  if (config.emitBlocks.models) {
+    eventEmitter.on('ModelOutputType', modelOutputType);
+  }
+  if (config.emitBlocks.outputs) {
+    eventEmitter.on('AggregateOutput', createAggregateInput);
+  }
+  if (config.emitBlocks.inputs) {
+    eventEmitter.on('InputType', inputType);
+  }
+  if (config.emitBlocks.args) {
+    eventEmitter.on('ArgsType', argsType);
+  }
   eventEmitter.on('GenerateFiles', generateFiles);
 
-  for (const message of config.$warnings) {
-    eventEmitter.emitSync('Warning', message);
-  }
+  // Emitted after connectCallback, so library users can listen to them,
+  // or before rethrowing when generation fails earlier
+  const warnings = [...config.$warnings];
+  let warningsEmitted = false;
+  const emitWarnings = () => {
+    if (warningsEmitted) {
+      return;
+    }
+    warningsEmitted = true;
+    for (const message of warnings) {
+      eventEmitter.emitSync('Warning', message);
+    }
+  };
 
-  const project = new Project({
-    manipulationSettings: {
-      quoteKind: QuoteKind.Single,
-    },
-    skipAddingFilesFromTsConfig: true,
-    skipLoadingLibFiles: !config.emitCompiled,
-    tsConfigFilePath: config.tsConfigFilePath,
+  // Steps that can throw before the warnings are emitted print them first
+  const withWarnings = <T>(step: () => T): T => {
+    try {
+      return step();
+    } catch (error) {
+      emitWarnings();
+      throw error;
+    }
+  };
+
+  const project = withWarnings(() => {
+    const result = new Project({
+      manipulationSettings: {
+        quoteKind: QuoteKind.Single,
+      },
+      skipAddingFilesFromTsConfig: true,
+      skipLoadingLibFiles: !config.emitCompiled,
+      tsConfigFilePath: config.tsConfigFilePath,
+    });
+    if (!skipAddOutputSourceFiles) {
+      result.addSourceFilesAtPaths([
+        `${generatorOutputValue}/**/*.ts`,
+        `!${generatorOutputValue}/**/*.d.ts`,
+      ]);
+    }
+    return result;
   });
 
-  if (!skipAddOutputSourceFiles) {
-    project.addSourceFilesAtPaths([
-      `${generatorOutputValue}/**/*.ts`,
-      `!${generatorOutputValue}/**/*.d.ts`,
-    ]);
+  if (config.combineScalarFilters) {
+    combineScalarFilters(eventEmitter);
   }
-
-  config.combineScalarFilters && combineScalarFilters(eventEmitter);
-  config.noAtomicOperations && noAtomicOperations(eventEmitter);
-  config.reExport !== ReExport.None && reExport(eventEmitter);
-  config.emitSingle && emitSingle(eventEmitter);
-  config.purgeOutput && purgeOutput(eventEmitter);
-  config.requireSingleFieldsInWhereUniqueInput &&
+  if (config.noAtomicOperations) {
+    noAtomicOperations(eventEmitter);
+  }
+  if (config.reExport !== ReExport.None) {
+    reExport(eventEmitter);
+  }
+  if (config.emitSingle) {
+    emitSingle(eventEmitter);
+  }
+  if (config.purgeOutput) {
+    purgeOutput(eventEmitter);
+  }
+  if (config.requireSingleFieldsInWhereUniqueInput) {
     requireSingleFieldsInWhereUniqueInput(eventEmitter);
+  }
 
   const models = new Map<string, Model>();
   const modelNames: string[] = [];
@@ -109,10 +153,39 @@ export async function generate(
   });
   const { datamodel, schema } = JSON.parse(JSON.stringify(dmmf)) as Document;
   const removeTypes = new Set<string>();
+  const prismaClientVersion = getPrismaClientVersion(args.schemaPath);
+  if (prismaClientVersion.major === undefined) {
+    warnings.push(
+      `${prismaClientVersion.reason}, assuming Prisma Client >= 6 (Bytes as Uint8Array)`,
+    );
+  }
+  // Parsed once: registerEnum writes members from it, field types depend on it
+  const enumValueDocumentation = withWarnings(() =>
+    Object.fromEntries(
+      datamodel.enums.map(
+        enumType =>
+          [
+            enumType.name,
+            extractEnumValueDocumentation(enumType.name, enumType.values),
+          ] as const,
+      ),
+    ),
+  );
+  // Fields of enums with custom `@value(...)` member values are typed by member names
+  const customValueEnums = new Set(
+    Object.entries(enumValueDocumentation)
+      .filter(([, documentation]) =>
+        Object.values(documentation).some(member => member?.value !== undefined),
+      )
+      .map(([name]) => name),
+  );
   const eventArguments: EventArguments = {
+    bytesType: getBytesType(prismaClientVersion.major),
     classTransformerTypeModels: new Set(),
     config,
+    customValueEnums,
     enums: mapKeys(datamodel.enums, x => x.name),
+    enumValueDocumentation,
     eventEmitter,
     fieldSettings,
     getModelName,
@@ -127,8 +200,12 @@ export async function generate(
     typeNames: new Set<string>(),
   };
 
-  if (connectCallback) {
-    await connectCallback(eventEmitter, eventArguments);
+  try {
+    if (connectCallback) {
+      await connectCallback(eventEmitter, eventArguments);
+    }
+  } finally {
+    emitWarnings();
   }
 
   await eventEmitter.emit('Begin', eventArguments);
@@ -165,7 +242,10 @@ export async function generate(
     await eventEmitter.emit('OutputType', outputType, eventArguments);
   }
 
-  const inputTypes = inputObjectTypes.prisma.concat(inputObjectTypes.model || []);
+  const inputTypes = [
+    ...(inputObjectTypes.prisma ?? []),
+    ...(inputObjectTypes.model ?? []),
+  ];
 
   for (const inputType of inputTypes) {
     const event = {

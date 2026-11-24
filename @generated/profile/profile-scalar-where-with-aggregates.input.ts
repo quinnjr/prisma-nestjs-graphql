@@ -15,7 +15,10 @@ export class ProfileScalarWhereWithAggregatesInput {
   @Field(() => [ProfileScalarWhereWithAggregatesInput], { nullable: true })
   NOT?: Array<ProfileScalarWhereWithAggregatesInput>;
 
-  @Field(() => IntWithAggregatesFilter, { nullable: true })
+  @Field(() => IntWithAggregatesFilter, {
+    deprecationReason: 'Use new name instead',
+    nullable: true,
+  })
   id?: IntWithAggregatesFilter;
 
   @Field(() => StringWithAggregatesFilter, { nullable: true })

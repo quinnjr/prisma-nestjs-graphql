@@ -8,13 +8,13 @@ import { NestedEnumRoleNullableFilter } from './nested-enum-role-nullable-filter
 @InputType()
 export class EnumRoleNullableWithAggregatesFilter {
   @Field(() => Role, { nullable: true })
-  equals?: `${Role}`;
+  equals?: keyof typeof Role;
 
   @Field(() => [Role], { nullable: true })
-  in?: Array<`${Role}`>;
+  in?: Array<keyof typeof Role>;
 
   @Field(() => [Role], { nullable: true })
-  notIn?: Array<`${Role}`>;
+  notIn?: Array<keyof typeof Role>;
 
   @Field(() => NestedEnumRoleNullableWithAggregatesFilter, { nullable: true })
   not?: NestedEnumRoleNullableWithAggregatesFilter;

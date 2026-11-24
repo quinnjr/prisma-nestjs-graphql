@@ -4,6 +4,6 @@ import { Int } from '@nestjs/graphql';
 
 @ObjectType()
 export class ProfileSumAggregate {
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, { deprecationReason: 'Use new name instead', nullable: true })
   id?: number;
 }

@@ -3,7 +3,7 @@ import { InputType } from '@nestjs/graphql';
 
 @InputType()
 export class ProfileMaxAggregateInput {
-  @Field(() => Boolean, { nullable: true })
+  @Field(() => Boolean, { deprecationReason: 'Use new name instead', nullable: true })
   id?: true;
 
   @Field(() => Boolean, { nullable: true })

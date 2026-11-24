@@ -6,8 +6,12 @@ import { FieldLocation } from '../types';
 export function getPropertyType(args: {
   type: string;
   location: FieldLocation;
+  /** TypeScript type of Prisma Bytes fields, see getBytesType() */
+  bytesType: string;
+  /** Enums with custom `@value(...)` member values */
+  customValueEnums: ReadonlySet<string>;
 }): string[] {
-  const { location, type } = args;
+  const { bytesType, customValueEnums, location, type } = args;
   switch (type) {
     case 'Float':
     case 'Int': {
@@ -23,7 +27,8 @@ export function getPropertyType(args: {
       return ['Date', 'string'];
     }
     case 'Decimal': {
-      return ['Decimal'];
+      // Public Prisma namespace type, `runtime/library` is internal to Prisma Client
+      return ['Prisma.Decimal'];
     }
     case 'Json': {
       return ['any'];
@@ -32,7 +37,7 @@ export function getPropertyType(args: {
       return ['null'];
     }
     case 'Bytes': {
-      return ['Uint8Array'];
+      return [bytesType];
     }
     case 'BigInt': {
       return ['bigint', 'number'];
@@ -42,7 +47,11 @@ export function getPropertyType(args: {
     return [type];
   }
   if (location === 'enumTypes') {
-    const enumType = '`${' + type + '}`';
+    // Prisma reads and writes enums by member name. Values of a plain enum
+    // are its names, a custom-valued enum needs the names explicitly.
+    const enumType = customValueEnums.has(type)
+      ? `keyof typeof ${type}`
+      : '`${' + type + '}`';
 
     return [enumType];
   }

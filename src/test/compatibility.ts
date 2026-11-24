@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions, prefer-const, unicorn/no-null */
+/* eslint-disable @typescript-eslint/no-unused-expressions, prefer-const -- type-level compatibility checks between generated and Prisma types */
 import { Field } from '@nestjs/graphql';
 import { Prisma, PrismaClient } from '@prisma/client';
 import * as P from '@prisma/client';
@@ -122,8 +122,10 @@ let $prisma = new PrismaClient();
   p = x;
 }
 {
-  let x: DummyCreateInput = { decimal: 0 as any, id: '1' };
-  let p: Prisma.DummyCreateInput = { decimal: 0 as any, id: '2' };
+  // Generated inputs type Decimal fields as the runtime Decimal class (GraphQL
+  // values are transformed into it), narrower than Prisma's Decimal | number | string
+  let x: DummyCreateInput = { decimal: new Prisma.Decimal(0), id: '1' };
+  let p: Prisma.DummyCreateInput = { decimal: 0, id: '2' };
   p = x;
 }
 {
@@ -143,18 +145,26 @@ let $prisma = new PrismaClient();
   let x: UserMaxOrderByAggregateInput = {};
   let p: Prisma.UserMaxOrderByAggregateInput = {};
   p = x; // To prisma
-  // FIXME: Skip is not assignable to type asc | desc | undefined
-  // x = p; // Prisma to own object type
+  // Only generated -> Prisma is checked: with the strictUndefinedChecks preview
+  // feature Prisma order-by fields also accept `Prisma.Skip`, which has no
+  // GraphQL counterpart, so Prisma -> generated is intentionally not assignable.
 }
 {
   let x: UserCreateInput = {} as unknown as UserCreateInput;
   let p: Prisma.UserCreateInput = {} as unknown as Prisma.UserCreateInput;
 }
 {
-  let x: Dummy['bytes'] = null as unknown as P.Dummy['bytes'];
-  let p: P.Dummy['bytes'] = null as unknown as Dummy['bytes'];
-  p = x;
-  x = p;
+  // Typed parameters (not literal initializers) so control flow cannot narrow
+  // the values to `null` and the check is done on the declared types
+  const bytesCompatibility = (
+    generatedBytes: Dummy['bytes'],
+    prismaBytes: P.Dummy['bytes'],
+  ) => {
+    const toPrisma: P.Dummy['bytes'] = generatedBytes;
+    const fromPrisma: Dummy['bytes'] = prismaBytes;
+    return [toPrisma, fromPrisma];
+  };
+  bytesCompatibility;
 }
 {
   let x: Dummy = {} as unknown as Dummy;
@@ -172,7 +182,7 @@ let $prisma = new PrismaClient();
   p = x;
   p;
   // x = p; // fails (enumerable)
-  // $prisma.user.groupBy(x); // Error (prisma issue https://github.com/unlight/prisma-nestjs-graphql/issues/31)
+  // $prisma.user.groupBy(x); // Error: Prisma groupBy args types are not assignable from generated args
   // $prisma.user.groupBy(p); // Error
 }
 {
